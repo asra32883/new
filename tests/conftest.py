@@ -57,3 +57,15 @@ def new_client(app):
 
 def csrf(resp):
     return {"X-CSRF-Token": resp.json()["csrf_token"]}
+
+
+def fake_pub(tag="x"):
+    return f"-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n{tag}\n-----END PGP PUBLIC KEY BLOCK-----"
+
+
+def upload_key(client, headers, tag="x", fpr=None, backup=None):
+    """Placeholder key for server-side tests; real keys are exercised in the browser tests."""
+    body = {"public_key": fake_pub(tag), "fingerprint": fpr or (tag.encode().hex().upper() * 40)[:40]}
+    if backup is not None:
+        body["encrypted_private_key"] = backup
+    return client.put("/api/keys/me", headers=headers, json=body)

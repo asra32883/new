@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tor-Mail{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <header class="top"><a class="brand" href="/">Tor-Mail</a>
+    <nav aria-label="Main"><a href="/keys">Encryption keys</a></nav></header>
+  <main id="main">{% block content %}{% endblock %}</main>
+  <noscript><p class="notice warn">This page needs JavaScript: encryption happens in your browser.</p></noscript>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -38,6 +38,8 @@ def send(body: SendIn, request: Request, auth: AuthContext = Depends(require_csr
         raise HTTPException(422, str(e)) from None
     except svc.UnknownRecipients as e:
         raise HTTPException(404, f"Unknown recipient(s): {e}") from None
+    except svc.MissingKey as e:
+        raise HTTPException(409, str(e)) from None
     except svc.SendLimited as e:
         raise HTTPException(429, "Sending limit reached. Try again later.",
                             headers={"Retry-After": str(e.retry_after)}) from None

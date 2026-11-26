@@ -2,9 +2,9 @@
 
 A Tor-only, closed-system webmail with browser-side OpenPGP end-to-end encryption.
 
-**Status: Phase 4 of 10 (adds the mailbox: send, inbox, sent, trash, pagination, retention).**
-Browser-side encryption (Phase 5) and the web UI (Phase 7) are not implemented yet; there is only a JSON API.
-Until Phase 5 the server accepts any armored OpenPGP-looking blob and cannot verify it is truly encrypted. See `ARCHITECTURE.md`
+**Status: Phase 5 of 10 (adds browser-side OpenPGP encryption and the key-management page at `/keys`).**
+The inbox/compose/login UI (Phase 7) is not built yet, so for now the JSON API plus `/keys` are the only interfaces.
+The server can only check that a message *looks* like armored OpenPGP; it cannot prove it is encrypted. Encryption is enforced by the client code, which the server delivers (see ARCHITECTURE.md 4.3). See `ARCHITECTURE.md`
 for the plan and `THREAT_MODEL.md` for what this system does and does not protect.
 
 Addresses look like `username@<onion-host>.onion` but are **application-level only**:
@@ -26,6 +26,13 @@ uvicorn app.main:factory --factory --host 127.0.0.1 --port 8000
 
 Production mode (`TORMAIL_ENV=production`) refuses to start with a weak secret,
 a non-loopback bind address, disabled secure cookies, SQLite, or weak Argon2id settings.
+
+## Browser end-to-end tests
+
+```bash
+pip install playwright && playwright install chromium   # once
+python -m pytest tests/e2e                                # real server + headless Chromium under the real CSP
+```
 
 ## Maintenance
 

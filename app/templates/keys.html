@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Encryption keys - Tor-Mail{% endblock %}
+{% block content %}
+<h1>Encryption keys</h1>
+<p id="status" role="status" aria-live="polite"></p>
+
+<section id="s-signin" hidden>
+  <p class="notice warn">You are not signed in.</p>
+</section>
+
+<div id="keys-ui" hidden>
+  <section id="s-overview" aria-labelledby="h-overview">
+    <h2 id="h-overview">Your key</h2>
+    <p>Current key fingerprint (compare with your contacts through another channel to confirm it is really yours):</p>
+    <p><code id="fingerprint" class="fpr">none yet</code></p>
+    <ul>
+      <li id="local-state"></li>
+      <li id="unlock-state"></li>
+    </ul>
+  </section>
+
+  <section id="s-unlock" aria-labelledby="h-unlock" hidden>
+    <h2 id="h-unlock">Unlock</h2>
+    <form id="f-unlock">
+      <label for="unlock-pass">Key passphrase</label>
+      <input id="unlock-pass" type="password" autocomplete="off" required>
+      <button type="submit">Unlock for this session</button>
+    </form>
+    <p class="hint">Your key stays unlocked in memory only until you close or reload this page.</p>
+  </section>
+
+  <section id="s-create" aria-labelledby="h-create" hidden>
+    <h2 id="h-create">Create your encryption key</h2>
+    <p id="rotate-warning" class="notice warn" hidden>
+      Creating a new key replaces your current one. Your old key stays in this browser so you can still read old mail,
+      but contacts will see a "key changed" warning until they verify your new fingerprint.</p>
+    <p>The key is generated in your browser and protected by a passphrase. The passphrase is separate from your login password
+      and is never sent to the server.</p>
+    <form id="f-create">
+      <label for="create-pass">Key passphrase (at least 14 characters)</label>
+      <input id="create-pass" type="password" autocomplete="new-password" required minlength="14">
+      <label for="create-pass2">Repeat passphrase</label>
+      <input id="create-pass2" type="password" autocomplete="new-password" required minlength="14">
+      <label class="check"><input id="create-ack" type="checkbox" required>
+        I understand that if I lose both this browser's copy and my backup file, or forget the passphrase,
+        my messages cannot be recovered by anyone, including the administrators.</label>
+      <button type="submit" id="create-btn">Create key</button>
+    </form>
+  </section>
+
+  <section id="s-export" aria-labelledby="h-export" hidden>
+    <h2 id="h-export">Export and backup</h2>
+    <p><button type="button" id="dl-public">Download public key</button>
+       <button type="button" id="dl-backup">Download encrypted private key backup</button></p>
+    <p class="hint">Keep the backup file somewhere safe. It is useless without your passphrase, but anyone who gets it can try to guess the passphrase offline.</p>
+  </section>
+
+  <section id="s-import" aria-labelledby="h-import" hidden>
+    <h2 id="h-import">Import a backup</h2>
+    <form id="f-import">
+      <label for="import-file">Backup file (.asc)</label>
+      <input id="import-file" type="file" accept=".asc,.txt,.pgp,.key" required>
+      <label for="import-pass">Its passphrase</label>
+      <input id="import-pass" type="password" autocomplete="off" required>
+      <button type="submit">Import</button>
+    </form>
+  </section>
+
+  <section id="s-sync" aria-labelledby="h-sync" hidden>
+    <h2 id="h-sync">Optional: store the encrypted backup on the server</h2>
+    <p id="sync-state"></p>
+    <p class="notice warn">Off by default. If you turn it on, the server stores your passphrase-encrypted private key. It cannot decrypt it,
+      but anyone with database access could try to guess your passphrase offline, so only do this with a long, random passphrase.</p>
+    <form id="f-sync-on" hidden>
+      <label class="check"><input id="sync-ack" type="checkbox" required> I understand the risk.</label>
+      <button type="submit">Store backup on server</button>
+    </form>
+    <p><button type="button" id="sync-off" hidden>Remove server backup</button>
+       <button type="button" id="sync-restore" hidden>Restore backup from server into this browser</button></p>
+  </section>
+
+  <section class="notice" aria-labelledby="h-limits">
+    <h2 id="h-limits">What this does and does not protect</h2>
+    <ul>
+      <li>Messages are encrypted in your browser. The server stores only ciphertext, but still sees who writes to whom, when, and message sizes.</li>
+      <li>The server delivers the JavaScript that does the encryption. A malicious or compromised server could serve altered code. Published file hashes are at
+        <a href="/.well-known/assets.json">/.well-known/assets.json</a>.</li>
+      <li>A key fetched from the server is not verified until you compare fingerprints with its owner through another channel.</li>
+    </ul>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/openpgp.min.js"></script>
+<script src="/static/js/crypto.js"></script>
+<script src="/static/js/mail.js"></script>
+<script src="/static/js/keys.js"></script>
+{% endblock %}

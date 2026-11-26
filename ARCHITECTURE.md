@@ -82,6 +82,14 @@ Mitigations planned (each partial):
 
 This will be in the privacy policy and the key-management page, not buried.
 
+### 4.3.1 Implementation notes (Phase 5)
+
+- **OpenPGP.js 6.3.2**, vendored and hash-pinned (`app/static/vendor/SHA256SUMS`, enforced by a test). 6.3.3 was only six days old at build time and its release notes were not yet published, so the older release with read notes was chosen. Upgrade procedure is in `vendor/README.md`.
+- **Keys:** curve25519 (Ed25519 + X25519), generated in the browser; private key protected with **Argon2id** S2K (AEAD-protected). This needs WebAssembly, so the CSP includes `'wasm-unsafe-eval'` (compiles WASM only; JS `eval` and inline scripts remain blocked). Without it OpenPGP.js silently falls back to iterated SHA-256, which is much weaker against offline guessing of a stolen backup; a browser test fails if that fallback ever happens.
+- **Sign-then-encrypt:** every message is signed by the sender's key inside the encryption. Readers verify against the sender's *current* public key and show `valid`, `invalid`, `unsigned` or `unverified`; the sender named in the signed contents must match the sender the server reports.
+- **Key pinning (TOFU):** the first key seen for each contact is pinned in the browser. A later change blocks sending until the user accepts it, and is never applied silently when reading. A fingerprint is only called "verified" after the user marks it so.
+- **Local storage:** only passphrase-protected private keys are stored (an unprotected key is refused at import and at save); unlocked keys exist in memory only.
+
 ### 4.4 Key authenticity
 
 A sender fetches the recipient's public key from the server, so a malicious server could substitute a key (MITM). Mitigation: show a **key fingerprint** on the contact view and in key management so users can compare out of band. No fake "verified" badges: the UI shows "key fetched from server, not independently verified" until the user marks it verified locally.
@@ -144,7 +152,7 @@ Behind Tor every request comes from one internal address, so classic per-IP rate
 
 ### 5.6 Web hardening
 
-CSP `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy` denying everything, `Cache-Control: no-store` on authenticated pages, CSRF tokens (double submit via session-bound token) on all state-changing requests, strict input validation with Pydantic, request size caps, no `Server` header leakage, no external fonts/scripts/images.
+CSP `default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy` denying everything, `Cache-Control: no-store` on authenticated pages, CSRF tokens (double submit via session-bound token) on all state-changing requests, strict input validation with Pydantic, request size caps, no `Server` header leakage, no external fonts/scripts/images.
 
 ### 5.6 Logging
 

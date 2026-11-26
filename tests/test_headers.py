@@ -15,7 +15,10 @@ def test_security_headers_present(client):
 
 def test_no_external_origins_in_csp(client):
     csp = client.get("/healthz").headers["content-security-policy"]
-    assert "http" not in csp and "*" not in csp and "unsafe" not in csp
+    assert "http" not in csp and "*" not in csp
+    assert "'unsafe-eval'" not in csp and "'unsafe-inline'" not in csp
+    # WebAssembly compilation is allowed (OpenPGP.js needs it for Argon2id); JS eval and inline script are not
+    assert csp.count("unsafe") == 1 and "script-src 'self' 'wasm-unsafe-eval'" in csp
 
 
 def test_oversize_body_rejected_by_header(client):

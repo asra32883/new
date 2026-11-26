@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Folder, Message, MessageRecipient, User, utcnow
+from app.models import UserKey
 from app.security import policy, ratelimit
 
 ARMOR_BEGIN = "-----BEGIN PGP MESSAGE-----"
@@ -38,6 +39,10 @@ class SendLimited(MailboxError):
     def __init__(self, retry_after: int) -> None:
         super().__init__("send limit")
         self.retry_after = retry_after
+
+
+class MissingKey(MailboxError):
+    pass
 
 
 class NotFound(MailboxError):
@@ -102,6 +107,16 @@ def send(db: Session, settings: Settings, sender: User, recipients: list[str], c
     if missing:
         db.commit()
         raise UnknownRecipients(", ".join(missing))
+
+    keyed = set(db.scalars(select(UserKey.user_id).where(
+        UserKey.is_active.is_(True), UserKey.user_id.in_([u.id for u in users.values()] + [sender.id]))))
+    if sender.id not in keyed:
+        db.commit()
+        raise MissingKey("You need to set up your encryption key before sending")
+    nokey = [n for n in names if users[n].id not in keyed]
+    if nokey:
+        db.commit()
+        raise MissingKey("No encryption key yet for: " + ", ".join(nokey))
 
     inbox = {
         f.user_id: f.id

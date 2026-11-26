@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.models import Message, MessageRecipient, utcnow
 from app.services import mailbox as svc
-from tests.conftest import csrf, new_client, register
+from tests.conftest import csrf, new_client, register, upload_key
 
 
 def armor(tag="x"):
@@ -19,7 +19,9 @@ def trio(app):
     out = {}
     for name in ("alice", "bobby", "mallory"):
         c = new_client(app)
-        out[name] = (c, csrf(register(c, name)))
+        h = csrf(register(c, name))
+        assert upload_key(c, h, tag=name).status_code == 200
+        out[name] = (c, h)
     return out
 
 
