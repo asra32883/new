@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.config import Settings, get_settings
 from app.database import make_engine
-from app.routes import account, auth, health
+from app.routes import account, auth, health, mailbox
 from app.security.headers import BodySizeLimitMiddleware, SecurityHeadersMiddleware
 from app.security.passwords import PasswordService
 
@@ -55,6 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(account.router)
+    app.include_router(mailbox.router)
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
     return app
 

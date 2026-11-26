@@ -17,7 +17,7 @@ def settings(tmp_path):
     url = os.environ.get("TORMAIL_TEST_DATABASE_URL") or f"sqlite:///{tmp_path}/t.db"
     return Settings(
         _env_file=None, env="test", database_url=url,
-        max_request_bytes=2048, cookie_secure=False, secret_key="k" * 40,
+        max_request_bytes=8192, cookie_secure=False, secret_key="k" * 40,
         argon2_time_cost=1, argon2_memory_kib=64, argon2_parallelism=1, pow_difficulty_bits=8,
     )
 

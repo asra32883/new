@@ -2,8 +2,9 @@
 
 A Tor-only, closed-system webmail with browser-side OpenPGP end-to-end encryption.
 
-**Status: Phase 3 of 10 (schema, migrations, registration, login, sessions, account management).**
-Mailbox and encryption are not implemented yet; there is no web UI yet, only the JSON API. See `ARCHITECTURE.md`
+**Status: Phase 4 of 10 (adds the mailbox: send, inbox, sent, trash, pagination, retention).**
+Browser-side encryption (Phase 5) and the web UI (Phase 7) are not implemented yet; there is only a JSON API.
+Until Phase 5 the server accepts any armored OpenPGP-looking blob and cannot verify it is truly encrypted. See `ARCHITECTURE.md`
 for the plan and `THREAT_MODEL.md` for what this system does and does not protect.
 
 Addresses look like `username@<onion-host>.onion` but are **application-level only**:
@@ -25,6 +26,10 @@ uvicorn app.main:factory --factory --host 127.0.0.1 --port 8000
 
 Production mode (`TORMAIL_ENV=production`) refuses to start with a weak secret,
 a non-loopback bind address, disabled secure cookies, SQLite, or weak Argon2id settings.
+
+## Maintenance
+
+`python -m scripts.purge` removes trash older than `TORMAIL_TRASH_PURGE_DAYS` (30), expired sessions and stale rate-limit rows. Run it daily.
 
 ## Layout
 

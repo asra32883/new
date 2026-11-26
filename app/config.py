@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     login_global_per_minute: int = Field(default=300, ge=1)
     login_lock_threshold: int = Field(default=5, ge=1)
     max_message_bytes: int = Field(default=256 * 1024, ge=1024)
+    max_recipients: int = Field(default=20, ge=1)
+    send_per_hour: int = Field(default=60, ge=1)
+    send_per_day: int = Field(default=300, ge=1)
+    page_size_default: int = Field(default=25, ge=1)
+    page_size_max: int = Field(default=50, ge=1)
     max_request_bytes: int = Field(default=512 * 1024, ge=1024)
 
     # Data retention

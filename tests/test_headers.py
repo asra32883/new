@@ -19,7 +19,7 @@ def test_no_external_origins_in_csp(client):
 
 
 def test_oversize_body_rejected_by_header(client):
-    r = client.post("/healthz", content=b"x" * 4096)
+    r = client.post("/healthz", content=b"x" * 20000)
     assert r.status_code == 413
 
 
