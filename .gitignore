@@ -1,0 +1,11 @@
+.env
+*.db
+__pycache__/
+.pytest_cache/
+.venv/
+# Tor onion identity keys must never be committed
+hs_ed25519_secret_key
+hs_ed25519_public_key
+hostname
+tor-data/
+backups/
