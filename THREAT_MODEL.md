@@ -46,6 +46,7 @@
 | T15 | Log leakage | A4 | Access logs off, scrubbed app logs, tests | Operator can add logging; cannot be technically prevented |
 | T16 | Supply chain (Python/JS deps) | All | Pinned versions with hashes, `pip-audit`, vendored JS hash check | Zero-days |
 | T17 | Timing side channels on login/username existence | A1 | Dummy-hash verification, generic errors | Registration necessarily reveals if a username is taken |
+| T19 | Login-budget exhaustion: an attacker spends the global login budget (default 300/min) so legitimate logins get 429 | A1 | Budget is configurable; Tor onion-service PoW defenses throttle floods upstream | **Accepted:** global limits cannot distinguish users when IPs are unavailable; availability is traded for brute-force protection |
 | T18 | Message-size/timing metadata analysis | A4, A3 | Optional padding of ciphertext to size buckets | Padding is future work; sizes visible in v1 |
 
 ## 4. What administrators can and cannot access

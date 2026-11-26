@@ -42,6 +42,9 @@ class Settings(BaseSettings):
 
     # Abuse limits (no IP addresses are used or stored)
     pow_difficulty_bits: int = Field(default=20, ge=0, le=32)
+    register_global_per_hour: int = Field(default=60, ge=1)
+    login_global_per_minute: int = Field(default=300, ge=1)
+    login_lock_threshold: int = Field(default=5, ge=1)
     max_message_bytes: int = Field(default=256 * 1024, ge=1024)
     max_request_bytes: int = Field(default=512 * 1024, ge=1024)
 

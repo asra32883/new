@@ -114,12 +114,12 @@ tor-mail/
 - `users(id UUID pk, username citext/unique lowercase, password_hash, created_at, last_login_at NULL)`
 - `user_keys(id, user_id fk, public_key_armored, fingerprint, encrypted_private_key NULL, is_active, created_at)`
 - `folders(id, user_id fk, kind enum[inbox,sent,trash], ...)`
-- `messages(id UUID pk, sender_id fk, ciphertext_recipient bytes, ciphertext_sender bytes, size_bytes, created_at)`
-- `message_recipients(message_id fk, recipient_id fk, folder_id fk, is_read, deleted_at NULL, ...)` with index on `(recipient_id, folder_id, created_at DESC)`
-- `sessions(id, user_id fk, token_hash unique, created_at, last_seen_at, expires_at, user_agent_class NULL)`
-- `rate_limits(key, window_start, count)` (or in-memory with DB fallback; decided in Phase 3)
+- `messages(id UUID pk, sender_id fk NULL on delete SET NULL, ciphertext bytes, size_bytes, created_at, sender_deleted_at NULL)`: **one** OpenPGP message encrypted to all recipient keys and the sender's key (changed from the two-column design in Phase 1; simpler and avoids storing the same content twice).
+- `message_recipients(message_id fk, recipient_id fk, folder_id fk, is_read, delivered_at, deleted_at NULL)`, PK `(message_id, recipient_id)`, index on `(recipient_id, folder_id, delivered_at)`
+- `sessions(id, user_id fk, token_hash unique, created_at, last_seen_at, expires_at)` (no user-agent column: less data collected)
+- `rate_limits(key pk, window_start, count)`: DB-backed, keys are keyed hashes, never IPs or raw usernames
 
-Deletion rules: deleting a user cascades keys, sessions, folders, and their `message_recipients` rows; the user's sent ciphertext (the sender copy) is removed; ciphertext addressed to other users remains in their mailboxes until they delete it, but with the sender reference nulled. This is a deliberate, documented trade-off (we cannot reach into others' mailboxes), and is in the retention policy.
+Deletion rules (implemented in `services/auth.py::delete_account`, tested): deleting a user cascades keys, sessions, folders and their mailbox rows. Messages they sent stay readable by their recipients (we cannot reach into other mailboxes) but lose the sender reference; a message with no sender and no recipients left is deleted. Because the sender copy is the same ciphertext, deleting an account does not erase a sent message from recipients' mailboxes. This is a deliberate, documented trade-off and belongs in the retention policy.
 
 ### 5.3 Authentication
 
