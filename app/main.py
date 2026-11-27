@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from app.config import Settings, get_settings
 from app.database import make_engine
 from app.routes import account, auth, health, keys, mailbox, pages
-from app.security.headers import BodySizeLimitMiddleware, SecurityHeadersMiddleware
+from app.security.headers import BodySizeLimitMiddleware, SecurityHeadersMiddleware, StaticOnlyGzip
 from app.security.passwords import PasswordService
 
 log = logging.getLogger("tormail")
@@ -49,6 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         errors = [{"loc": [str(p) for p in e["loc"]], "msg": e["msg"]} for e in exc.errors()]
         return JSONResponse({"detail": errors}, status_code=422)
 
+    app.add_middleware(StaticOnlyGzip)
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
     app.add_middleware(SecurityHeadersMiddleware)
 

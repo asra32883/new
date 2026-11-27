@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Tor-Mail</title>
+  <link rel="stylesheet" href="{{ asset('/static/css/app.css') }}">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="top">
+    <a class="brand" href="/" data-link>Tor-Mail</a>
+    <nav id="nav" aria-label="Main">
+      <ul>
+        <li data-auth="in" hidden><a href="/inbox" data-link>Inbox</a></li>
+        <li data-auth="in" hidden><a href="/compose" data-link>Compose</a></li>
+        <li data-auth="in" hidden><a href="/sent" data-link>Sent</a></li>
+        <li data-auth="in" hidden><a href="/trash" data-link>Trash</a></li>
+        <li data-auth="in" hidden><a href="/keys" data-link>Keys</a></li>
+        <li data-auth="in" hidden><a href="/settings" data-link>Settings</a></li>
+        <li data-auth="out" hidden><a href="/login" data-link>Sign in</a></li>
+        <li data-auth="out" hidden><a href="/register" data-link>Register</a></li>
+        <li><a href="/privacy" data-link>Privacy</a></li>
+        <li data-auth="in" hidden><button type="button" id="logout" class="linklike">Sign out <span id="who"></span></button></li>
+      </ul>
+    </nav>
+  </header>
+  <div id="keybar" class="keybar" hidden>
+    <span id="keystate"></span>
+  </div>
+  <main id="main" tabindex="-1">
+    <p id="status" role="status" aria-live="polite"></p>
+    <div id="view"></div>
+  </main>
+  <noscript><p class="notice warn">Tor-Mail needs JavaScript, because your messages are encrypted in your browser. Tor Browser's default security level allows it; the "Safest" level does not.</p></noscript>
+
+  {% include "views.html" %}
+
+  <script src="{{ asset('/static/vendor/openpgp.min.js') }}"></script>
+  <script src="{{ asset('/static/js/crypto.js') }}"></script>
+  <script src="{{ asset('/static/js/mail.js') }}"></script>
+  <script src="{{ asset('/static/js/app.js') }}"></script>
+</body>
+</html>

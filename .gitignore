@@ -9,3 +9,4 @@ hs_ed25519_public_key
 hostname
 tor-data/
 backups/
+node_modules/

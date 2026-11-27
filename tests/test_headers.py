@@ -38,3 +38,28 @@ def test_docs_enabled_only_outside_production(settings):
     c = TestClient(create_app(prod))
     assert c.get("/docs").status_code == 404
     assert c.get("/openapi.json").status_code == 404
+
+
+def test_static_assets_cache_by_content_hash_and_pages_never_cached(client):
+    shell = client.get("/login")
+    assert shell.headers["cache-control"] == "no-store"
+    import re
+    m = re.search(r'/static/js/app\.js\?v=([0-9a-f]{16})', shell.text)
+    assert m, "asset URLs must carry a content hash"
+    versioned = client.get(f"/static/js/app.js?v={m.group(1)}")
+    assert "immutable" in versioned.headers["cache-control"]
+    assert client.get("/static/js/app.js").headers["cache-control"] == "no-cache"
+
+
+def test_gzip_only_for_static_files(client):
+    big = client.get("/static/js/app.js", headers={"Accept-Encoding": "gzip"})
+    assert big.headers.get("content-encoding") == "gzip"
+    page = client.get("/login", headers={"Accept-Encoding": "gzip"})
+    assert "content-encoding" not in page.headers          # BREACH: no compression next to secrets
+    api = client.get("/api/auth/me", headers={"Accept-Encoding": "gzip"})
+    assert "content-encoding" not in api.headers
+
+
+def test_privacy_page_shows_configured_operator_contact(client, app):
+    app.state.settings.operator_contact = "ops@example.onion"
+    assert "ops@example.onion" in client.get("/privacy").text

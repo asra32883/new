@@ -1,6 +1,7 @@
 """Security headers and request-size limiting, implemented as pure ASGI middleware."""
 from __future__ import annotations
 
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 CSP = (
@@ -31,6 +32,7 @@ class SecurityHeadersMiddleware:
             await self.app(scope, receive, send)
             return
         is_static = scope["path"].startswith("/static/")
+        versioned = b"v=" in scope.get("query_string", b"")
 
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":
@@ -40,8 +42,14 @@ class SecurityHeadersMiddleware:
                     if k.lower() not in STATIC_HEADERS and k.lower() != b"server"
                 ]
                 headers.extend(STATIC_HEADERS.items())
-                if not is_static and not any(k.lower() == b"cache-control" for k, _ in headers):
-                    headers.append((b"cache-control", b"no-store"))
+                if not any(k.lower() == b"cache-control" for k, _ in headers):
+                    if not is_static:
+                        headers.append((b"cache-control", b"no-store"))
+                    elif versioned:
+                        # URL carries the file's content hash (?v=...), so it can never go stale
+                        headers.append((b"cache-control", b"public, max-age=31536000, immutable"))
+                    else:
+                        headers.append((b"cache-control", b"no-cache"))
                 message["headers"] = headers
             await send(message)
 
@@ -101,3 +109,18 @@ class BodySizeLimitMiddleware:
 
 class _TooLarge(Exception):
     pass
+
+
+class StaticOnlyGzip:
+    """Compress static files only. API and page responses carry secrets (CSRF tokens) next to user-controlled
+    text, so compressing them would invite BREACH-style attacks; static files contain no secrets."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+        self.gzip = GZipMiddleware(app, minimum_size=1024)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["path"].startswith("/static/"):
+            await self.gzip(scope, receive, send)
+        else:
+            await self.app(scope, receive, send)

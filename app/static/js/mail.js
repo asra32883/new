@@ -20,6 +20,9 @@
   KeyChangedError.prototype = Object.create(Error.prototype);
 
   var state = { csrf: null, username: null, unlocked: [] };
+  var listeners = [];
+  function emit() { listeners.forEach(function (f) { try { f(); } catch (e) { /* listener errors must not break crypto state */ } }); }
+  var keyCache = {};   // sender public keys looked up while reading mail (cleared on lock, logout, login)
 
   async function request(method, path, body) {
     var headers = { 'Accept': 'application/json' };
@@ -41,24 +44,25 @@
   // ---- account ------------------------------------------------------------------------------------------
   async function session() {
     var me = await request('GET', '/api/auth/me');
-    state.csrf = me.csrf_token; state.username = me.username;
+    state.csrf = me.csrf_token; state.username = me.username; emit();
     return me;
   }
   async function register(username, password, onProgress) {
     var ch = await request('GET', '/api/auth/pow-challenge');
     var nonce = await C.solvePow(ch.challenge, onProgress);
     var me = await request('POST', '/api/auth/register', { username: username, password: password, pow_challenge: ch.challenge, pow_nonce: nonce });
-    state.csrf = me.csrf_token; state.username = me.username; state.unlocked = [];
+    state.csrf = me.csrf_token; state.username = me.username; state.unlocked = []; keyCache = {}; emit();
     return me;
   }
   async function login(username, password) {
     var me = await request('POST', '/api/auth/login', { username: username, password: password });
-    state.csrf = me.csrf_token; state.username = me.username; state.unlocked = [];
+    state.csrf = me.csrf_token; state.username = me.username; state.unlocked = []; keyCache = {}; emit();
     return me;
   }
   async function logout() {
     await request('POST', '/api/auth/logout');
-    state.csrf = null; state.username = null; state.unlocked = [];   // drop unlocked keys with the session
+    state.csrf = null; state.username = null; state.unlocked = []; keyCache = {};   // drop unlocked keys with the session
+    emit();
   }
 
   // ---- local key storage ----------------------------------------------------------------------------------
@@ -80,9 +84,13 @@
     var list = localKeys(state.username);
     if (!list.length) { throw new Error('No private key stored in this browser. Import your backup first.'); }
     state.unlocked = await C.unlock(list, passphrase);
+    emit();
     return state.unlocked.length;
   }
-  function lock() { state.unlocked = []; }
+  function lock() { state.unlocked = []; keyCache = {}; emit(); }
+  function forgetLocalData(username) {
+    try { localStorage.removeItem(storeKey(username)); localStorage.removeItem('tormail:contacts:' + username); } catch (e) { /* ignore */ }
+  }
 
   // ---- key API --------------------------------------------------------------------------------------------
   async function getMyKey() {
@@ -102,6 +110,7 @@
   function saveContacts(c) { try { localStorage.setItem(contactsKey(), JSON.stringify(c)); } catch (e) { /* storage unavailable */ } }
   function markVerified(username, fingerprint) {
     var c = contacts(); c[username] = { fingerprint: fingerprint, verified: true }; saveContacts(c);
+    delete keyCache[username];
   }
 
   // opts.acceptChange: allow a changed key and re-pin it (send flow, after the user agreed).
@@ -147,18 +156,19 @@
   async function open(item, folder) {
     if (!state.unlocked.length) { throw new Error('Unlock your key first'); }
     var claimedSender = folder === 'sent' ? state.username : item.sender;
-    var senderPub = null, senderVerified = false, senderChanged = false;
+    var senderPub = null, senderVerified = false, senderChanged = false, senderFpr = null;
     if (claimedSender) {
       try {
-        var k = await fetchVerifiedKey(claimedSender, { readOnly: true });
-        senderPub = k.armored; senderVerified = k.verified; senderChanged = k.changed;
-      } catch (e) { senderPub = null; }
+        var k = keyCache[claimedSender] || (keyCache[claimedSender] = await fetchVerifiedKey(claimedSender, { readOnly: true }));
+        senderPub = k.armored; senderVerified = k.verified; senderChanged = k.changed; senderFpr = k.fingerprint;
+      } catch (e) { senderPub = null; delete keyCache[claimedSender]; }
     }
     var out = await C.decryptMessage({ armored: item.ciphertext, keys: state.unlocked, senderPublic: senderPub });
     var p = out.payload;
     return {
       id: item.id, subject: p.subject, body: p.body, to: p.to, from: p.from, sentAt: p.client_ts,
       signature: out.signature,                                  // 'valid' only if signed by the sender's current key
+      senderFingerprint: senderFpr,
       senderKeyChanged: senderChanged,                           // sender's key differs from the one you pinned
       senderKeyVerified: senderVerified,                         // user compared the fingerprint out of band
       senderMismatch: !!claimedSender && p.from !== claimedSender,   // server says one sender, signed contents say another
@@ -175,7 +185,8 @@
   root.TorMail = {
     ApiError: ApiError, KeyChangedError: KeyChangedError, state: state, request: request,
     session: session, register: register, login: login, logout: logout,
-    localKeys: localKeys, addLocalKey: addLocalKey, unlockLocal: unlockLocal, lock: lock,
+    localKeys: localKeys, addLocalKey: addLocalKey, unlockLocal: unlockLocal, lock: lock, forgetLocalData: forgetLocalData,
+    onChange: function (f) { listeners.push(f); },
     getMyKey: getMyKey, putMyKey: putMyKey, deleteServerBackup: deleteServerBackup, fetchServerBackup: fetchServerBackup,
     fetchVerifiedKey: fetchVerifiedKey, contacts: contacts, markVerified: markVerified,
     send: send, open: open, list: list,

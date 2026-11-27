@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     page_size_max: int = Field(default=50, ge=1)
     max_request_bytes: int = Field(default=512 * 1024, ge=1024)
 
+    # Shown on the privacy page. Plain text; set it to how users can reach the operator.
+    operator_contact: str = Field(default="", max_length=300)
+
     # Data retention
     trash_purge_days: int = Field(default=30, ge=1)
 

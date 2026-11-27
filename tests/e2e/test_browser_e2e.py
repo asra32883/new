@@ -41,7 +41,7 @@ class Session:
     def open_keys(self):
         self.page.goto(self.base + "/keys")
         wait(self.page, "window.TorMail && window.TorMailCrypto")
-        wait(self.page, "!document.getElementById('s-signin').hidden || !document.getElementById('keys-ui').hidden")
+        wait(self.page, "document.getElementById('keys-ui') && !document.getElementById('keys-ui').hidden")
 
     def register(self):
         self.page.goto(self.base + "/keys")
@@ -309,8 +309,10 @@ def test_server_backup_is_opt_in_and_restorable(make, server, tmp_path):
 
 def test_signed_out_visitor_sees_no_key_ui(make):
     anon = make("nobody")
-    anon.open_keys()
-    assert anon.page.is_visible("#s-signin") and not anon.page.is_visible("#keys-ui")
+    anon.page.goto(anon.base + "/keys")
+    wait(anon.page, "location.pathname === '/login'")       # signed-out visitors are sent to sign in
+    assert not anon.page.is_visible("#keys-ui")
+    assert anon.page.is_visible("#login-user")
 
 
 def test_proof_of_work_solves_in_browser_in_reasonable_time(make):
@@ -330,7 +332,7 @@ def test_page_headers_and_published_asset_hashes(make, server):
     assert r.status_code == 200 and "script-src 'self'" in r.headers["content-security-policy"]
     assert "<script>" not in r.text and "onclick" not in r.text          # nothing inline for the CSP to block
     manifest = httpx.get(server["base"] + "/.well-known/assets.json").json()["files"]
-    for path in ("/static/vendor/openpgp.min.js", "/static/js/crypto.js", "/static/js/mail.js", "/static/js/keys.js"):
+    for path in ("/static/vendor/openpgp.min.js", "/static/js/crypto.js", "/static/js/mail.js", "/static/js/app.js"):
         served = httpx.get(server["base"] + path).content
         assert manifest[path] == hashlib.sha256(served).hexdigest()
 

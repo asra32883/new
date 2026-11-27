@@ -199,3 +199,14 @@ Browser-side crypto is tested with a headless-browser or Node harness using the 
 2. **Server-synced encrypted private key:** off by default (my recommendation) or on?
 3. **Trash/retention:** auto-purge deleted messages after 30 days acceptable?
 4. **Docker-first or systemd-first** as the primary deployment path?
+
+
+## Phase 7: web UI
+
+- Single-page app served from one shell (`app.html`) for every UI route; views are inert `<template>` elements cloned by `app.js`, filled with `textContent` only (no `innerHTML`, no inline script/style, so the strict CSP holds).
+- Client-side routing (History API) keeps the unlocked private key in memory across navigation; a full reload locks it again by design.
+- Search is client-side over decrypted messages already loaded; the server cannot search ciphertext.
+- Trust indicators on each message: decryption, signature (valid/invalid/unsigned/unverified), whether the sender's key changed since first use, and whether you verified the fingerprint. Nothing is shown as "secure" that was not checked.
+- Static files: gzip and content-hash URLs (`?v=`, immutable). Pages and API responses are never compressed or cached (BREACH, secrets).
+- Accessibility: skip link, labelled forms, live status region, 44px targets, light/dark themes, no animation; axe-core WCAG 2.1 AA audit in `tests/e2e` (`npm ci` in `tests/e2e/axe` to enable).
+- `TORMAIL_OPERATOR_CONTACT` is shown on the privacy page.
