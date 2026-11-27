@@ -160,26 +160,21 @@ Access logging off by default. Application logs contain event codes and no usern
 
 ## 6. Tor integration
 
-`tor/torrc.example`:
+Implemented in Phase 6: `tor/torrc`, `tor/Dockerfile`, `Dockerfile`, `docker-compose.yml`, `deployment/TOR.md`.
 
 ```
-DataDirectory /var/lib/tor
-HiddenServiceDir /var/lib/tor/tormail/
-HiddenServiceVersion 3
-HiddenServicePort 80 app:8000
-# Hardening
-HiddenServiceMaxStreams 200
-HiddenServiceMaxStreamsCloseCircuit 1
-HiddenServicePoWDefensesEnabled 1
-SocksPort 0
-ClientOnly 1
+Tor Browser ==Tor==> [tor] --Unix socket (shared volume, mode 0750 dir)--> [app] --backend (internal net)--> [db]
+                      egress only                                            no TCP listener
 ```
 
-- The app is never bound to a public interface. Firewall allows only outbound Tor traffic; **no inbound ports** are required for an onion service.
-- The hidden-service directory holds the **onion identity secret key**. It is the service's identity: back it up securely, never commit it, mode 0700. Loss means a new address; theft means impersonation.
-- Recommend `vanguards` for guard-discovery protection (documented, optional).
-- Optional client authorization (private onion) documented for invite-only deployments.
-- Server hardening notes: the server's clearnet IP is not exposed by the web app, but can leak through other services on the host, DNS, mail daemons, error pages, or clock/uptime correlation. The deployment guide includes a checklist.
+- **Changed from the Phase 1 sketch:** Tor forwards to a **Unix socket**, not `app:8000`. Tor Browser returns `Secure` cookies over plain-HTTP onion connections, and the Tor Project's advisory says `HiddenServicePort` should target only a local address, otherwise those cookies cross an unencrypted network hop. A socket keeps that hop off the network entirely, and lets the app sit on an internal network with no other neighbour than its database.
+- **Isolation:** `backend` is an internal Docker network (no internet route) holding app and db; only `tor` has an egress network. No service publishes a port. All containers: read-only filesystem, `cap_drop: ALL`, `no-new-privileges`, non-root users, pid and memory limits.
+- **Socket access control:** uvicorn creates the socket world-writable, so the directory is the lock: `/run/tormail` is `0750`, owner uid 10001, group 10002; the tor container joins group 10002 and mounts it read-only. Verified with real unprivileged users in `tests/test_socket_permissions.py`.
+- **`torrc`:** v3 service; `SocksPort 0`, no control port, `ClientOnly 1`, `ExitRelay 0`; intro-point DoS defences, stream limits, and PoW defences (needs a Tor build with PoW support).
+- The hidden-service directory holds the **onion identity secret key** (volume `torkeys`): back it up encrypted, never commit it. Loss means a new address; theft means impersonation.
+- No reverse proxy: if one is ever added it must also use a local socket or `127.0.0.1`.
+- Host-level leak vectors (other services, DNS, hosting provider, clock) are in the checklist in `deployment/TOR.md`.
+- **Untested in the build environment:** building and running the containers and reaching the onion address. `scripts/check_exposure.sh` verifies the running stack on the real host.
 
 ## 7. Phase plan and acceptance gates
 

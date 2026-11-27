@@ -39,7 +39,7 @@
 | T8 | Operator reads mail | A4 | Server only holds ciphertext | Operator sees metadata and can see key/ciphertext structure |
 | T9 | **Operator ships malicious JS** | A5 | CSP, vendored code, published asset hashes | **Not solved.** This is inherent to webmail. A standalone client is the real fix |
 | T10 | Public-key substitution by server | A5 | Fingerprint display, user-marked verification | Users who do not verify are exposed |
-| T11 | Server IP leak | A6 | Onion service only, no inbound ports, no outbound calls from app, no external assets, hardening checklist | Host misconfiguration (other services, DNS, mail), hosting provider knowledge |
+| T11 | Server IP leak | A6 | Onion service only, no published ports, app and db on an internal network with no internet route, no outbound calls from app (tested), no external assets, hardening checklist | Host misconfiguration (other services, DNS, mail), hosting provider knowledge |
 | T12 | Traffic correlation | A7 | Out of scope; Tor's limits apply | Accepted and stated |
 | T13 | Spam/abuse and DoS | A1, A2 | Send limits, PoW, size caps, Tor onion DoS defenses | Resource exhaustion remains possible |
 | T14 | Lost keys | User | Backup flow, honest warnings | Permanent message loss by design |
@@ -48,6 +48,7 @@
 | T17 | Timing side channels on login/username existence | A1 | Dummy-hash verification, generic errors | Registration necessarily reveals if a username is taken |
 | T19 | Login-budget exhaustion: an attacker spends the global login budget (default 300/min) so legitimate logins get 429 | A1 | Budget is configurable; Tor onion-service PoW defenses throttle floods upstream | **Accepted:** global limits cannot distinguish users when IPs are unavailable; availability is traded for brute-force protection |
 | T20 | Weakened CSP: `'wasm-unsafe-eval'` allows WebAssembly compilation | A8 | Needed for Argon2id key protection; JS `eval` and inline script stay blocked; all scripts same-origin and hash-published | Injected script from the same origin could run WASM; it could already run JS in that case |
+| T21 | `Secure` session cookies returned by Tor Browser over a plain-HTTP hop between Tor and the app | A6, A4 | Tor forwards to a local Unix socket, not a network address; no proxy/CDN in between; HttpOnly + SameSite=Strict cookies | A deployment that puts a proxy or remote backend behind Tor would reintroduce it; root on the host can read the socket traffic (but also the app's memory) |
 | T18 | Message-size/timing metadata analysis | A4, A3 | Optional padding of ciphertext to size buckets | Padding is future work; sizes visible in v1 |
 
 ## 4. What administrators can and cannot access

@@ -1,0 +1,82 @@
+# Tor-Mail production stack.  Start:  docker compose up -d --build
+# Onion address:                      docker compose exec tor cat /var/lib/tor/tormail/hostname
+#
+# Network design (see ARCHITECTURE.md section 6):
+#   db --[backend: internal network]-- app ==[Unix socket volume]== tor --[egress]--> Tor network
+# The app and database sit on an "internal" network with no route to the internet. The app has no TCP listener:
+# Tor reaches it through a Unix socket in a shared volume. No service publishes a host port, so there is nothing
+# to scan on the server's IP.
+name: tormail
+
+x-hardening: &hardening
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 256
+  logging:
+    driver: local
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  db:
+    <<: *hardening
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tormail
+      POSTGRES_USER: tormail
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (hex only)}
+    # The postgres entrypoint starts as root, fixes ownership, then drops privileges.
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tormail -d tormail"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    <<: *hardening
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      TORMAIL_ENV: production
+      TORMAIL_SECRET_KEY: ${TORMAIL_SECRET_KEY:?set TORMAIL_SECRET_KEY in .env (32+ random characters)}
+      TORMAIL_DATABASE_URL: postgresql+psycopg://tormail:${POSTGRES_PASSWORD}@db:5432/tormail
+      TORMAIL_COOKIE_SECURE: "true"
+    volumes:
+      - appsock:/run/tormail        # the app's Unix socket; the directory is owned by uid 10001, gid 10002, mode 0750
+    tmpfs:
+      - /tmp
+    networks: [backend]
+    mem_limit: 512m
+
+  tor:
+    <<: *hardening
+    build: ./tor
+    depends_on:
+      app: { condition: service_healthy }
+    group_add: ["10002"]              # lets the unprivileged tor user traverse /run/tormail (group of the app)
+    volumes:
+      - torkeys:/var/lib/tor        # holds the onion identity key: back this volume up, keep it private
+      - appsock:/run/tormail:ro     # connect-only access to the app socket
+    tmpfs:
+      - /tmp
+    networks: [egress]
+    mem_limit: 256m
+
+networks:
+  backend:
+    internal: true
+  egress: {}
+
+volumes:
+  dbdata:
+  torkeys:
+  appsock:

@@ -1,0 +1,32 @@
+## Tor configuration for the Tor-Mail onion service (v3 only).
+## Reference: https://community.torproject.org/onion-services/setup/
+##            https://2019.www.torproject.org/docs/tor-manual.html.en (HiddenService* options)
+
+DataDirectory /var/lib/tor
+Log notice stdout
+AvoidDiskWrites 1
+
+## This daemon only publishes an onion service. It is not a relay, exit, or SOCKS proxy, and has no control port.
+SocksPort 0
+ClientOnly 1
+ExitRelay 0
+
+## The onion service. Everything under HiddenServiceDir is secret: hs_ed25519_secret_key IS the service identity.
+## Losing it means a new onion address; leaking it lets someone impersonate the service. Back it up (encrypted).
+HiddenServiceDir /var/lib/tor/tormail/
+HiddenServiceVersion 3
+## Forward to the application's Unix socket (shared volume). Deliberately NOT a TCP address: Tor Browser sends
+## "Secure" cookies over plain-HTTP onion connections, so the Tor-to-app hop must stay local and off the network.
+## https://onionservices.torproject.org/apps/web/onionspray/security/advisories/001-torbrowser/
+HiddenServicePort 80 unix:/run/tormail/app.sock
+
+## Abuse and DoS hardening. Behind Tor the application cannot see client addresses, so limits live here as well.
+HiddenServiceMaxStreams 200
+HiddenServiceMaxStreamsCloseCircuit 1
+HiddenServiceEnableIntroDoSDefense 1
+HiddenServiceEnableIntroDoSRatePerSec 25
+HiddenServiceEnableIntroDoSBurstPerSec 200
+## Proof-of-work defence for the service (needs a Tor build with PoW support; check the startup log).
+HiddenServicePoWDefensesEnabled 1
+HiddenServicePoWQueueRate 25
+HiddenServicePoWQueueBurst 250
