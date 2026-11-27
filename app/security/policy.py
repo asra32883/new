@@ -22,7 +22,9 @@ COMMON_PASSWORDS = frozenset(
 
 
 def normalize_username(username: str) -> str:
-    return username.strip().lower()
+    # NUL cannot be stored or queried in PostgreSQL text; map it to a character no valid username contains,
+    # so such input simply fails to match instead of raising a database error.
+    return username.replace("\x00", "\ufffd").strip().lower()
 
 
 def validate_username(username: str) -> str:

@@ -80,3 +80,10 @@ def test_key_lookup_and_registration_do_not_help_enumerate_via_status_codes(app)
     unknown = a.get("/api/users/ghost/key"); known_nokey = a.get("/api/users/alice/key")
     assert unknown.status_code == known_nokey.status_code == 404
     assert unknown.json() == known_nokey.json()
+
+
+def test_nul_byte_in_any_username_field_never_errors(app):
+    a = new_client(app); ha = csrf(register(a, "alice")); upload_key(a, ha, "a")
+    assert a.get("/api/users/ali%00ce/key").status_code in (404, 422)
+    r = a.post("/api/messages", headers=ha, json={"recipients": ["ali\u0000ce"], "ciphertext": "-----BEGIN PGP MESSAGE-----\n\nx\n-----END PGP MESSAGE-----"})
+    assert r.status_code in (404, 422)

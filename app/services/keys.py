@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import User, UserKey, utcnow
-from app.security import ratelimit
+from app.security import policy, ratelimit
 
 PUB_BEGIN, PUB_END = "-----BEGIN PGP PUBLIC KEY BLOCK-----", "-----END PGP PUBLIC KEY BLOCK-----"
 PRIV_BEGIN, PRIV_END = "-----BEGIN PGP PRIVATE KEY BLOCK-----", "-----END PGP PRIVATE KEY BLOCK-----"
@@ -107,7 +107,7 @@ def delete_backup(db: Session, user_id: uuid.UUID) -> None:
 
 
 def public_for_username(db: Session, username: str) -> tuple[str, UserKey]:
-    user = db.scalar(select(User).where(User.username == username.strip().lower()))
+    user = db.scalar(select(User).where(User.username == policy.normalize_username(username)))
     key = active_key(db, user.id) if user else None
     if user is None or key is None:
         raise NoKey

@@ -10,6 +10,7 @@ Reviewer: the author (self-review, not independent). **No external audit has bee
 - Hostile inputs (SQL metacharacters, traversal, NULs, huge values), forged cookies, no CORS, no server banner, docs off in production, errors without internals.
 - CSP enforced in the browser tests; no inline script/style; no `innerHTML`/`eval` in app code (T6). axe-core WCAG 2.1 AA: no violations on tested pages.
 - No IP/user-agent columns; logs carry event codes only (T15). `pip-audit` on the lock file: no known vulnerabilities on 2026-11-27.
+- PostgreSQL run of the whole non-browser suite found and fixed a NUL-byte-in-username 500 error (now normalised so it never reaches the DB).
 - Config validation refuses unsafe production settings. Unix-socket permissions tested with real unprivileged users (T21).
 
 ## Not verified (could not be tested in the development sandbox)
