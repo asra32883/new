@@ -159,3 +159,30 @@ def test_axe_accessibility_audit(browser, server, tmp_path, scheme):
         assert not failures, failures
     finally:
         ctx.close()
+
+
+def test_show_password_toggle_reveals_and_rehides(make):
+    s = make("nobody")
+    s.page.goto(s.base + "/login")
+    wait(s.page, "document.getElementById('login-pass')")
+    assert s.page.get_attribute("#login-pass", "type") == "password"
+    s.page.check("label[data-role=showpw] input")
+    assert s.page.get_attribute("#login-pass", "type") == "text"
+    s.page.uncheck("label[data-role=showpw] input")
+    assert s.page.get_attribute("#login-pass", "type") == "password"
+
+
+def test_key_auto_locks_after_idle_and_clears_decrypted_text(make, tmp_path):
+    s = make("alice")
+    s.page.clock.install()
+    ui_register(s)
+    s.page.goto(s.base + "/keys"); s.open_keys(); s.create_key(tmp_path)
+    compose(s, "alice", "Secret subject", "secret body")
+    goto_link(s, "/inbox")
+    wait(s.page, "document.querySelector('.msglist').textContent.includes('Secret subject')")
+    assert s.js("() => TorMail.state.unlocked.length") == 1
+    s.page.clock.fast_forward(16 * 60 * 1000)
+    wait(s.page, "TorMail.state.unlocked.length === 0")
+    wait(s.page, "document.getElementById('unlock-pass-inline')")          # view rebuilt, asks for the passphrase
+    assert "Secret subject" not in s.page.inner_text("#view")
+    assert "locked after 15 minutes" in s.status()

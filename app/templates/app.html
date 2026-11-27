@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <meta name="referrer" content="no-referrer">
   <title>Tor-Mail</title>
   <link rel="stylesheet" href="{{ asset('/static/css/app.css') }}">
@@ -10,7 +11,7 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="top">
-    <a class="brand" href="/" data-link>Tor-Mail</a>
+    <a class="brand" href="/" data-link><span class="logo" aria-hidden="true"></span>Tor-Mail</a>
     <nav id="nav" aria-label="Main">
       <ul>
         <li data-auth="in" hidden><a href="/inbox" data-link>Inbox</a></li>
@@ -33,13 +34,14 @@
     <p id="status" role="status" aria-live="polite"></p>
     <div id="view"></div>
   </main>
+  <footer class="foot"><p>Messages are encrypted in your browser. The service still sees who writes to whom, and when. <a href="/privacy" data-link>Privacy</a></p></footer>
   <noscript><p class="notice warn">Tor-Mail needs JavaScript, because your messages are encrypted in your browser. Tor Browser's default security level allows it; the "Safest" level does not.</p></noscript>
 
   {% include "views.html" %}
 
-  <script src="{{ asset('/static/vendor/openpgp.min.js') }}"></script>
-  <script src="{{ asset('/static/js/crypto.js') }}"></script>
-  <script src="{{ asset('/static/js/mail.js') }}"></script>
-  <script src="{{ asset('/static/js/app.js') }}"></script>
+  <script defer src="{{ asset('/static/vendor/openpgp.min.js') }}"></script>
+  <script defer src="{{ asset('/static/js/crypto.js') }}"></script>
+  <script defer src="{{ asset('/static/js/mail.js') }}"></script>
+  <script defer src="{{ asset('/static/js/app.js') }}"></script>
 </body>
 </html>

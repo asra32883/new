@@ -1,10 +1,16 @@
 {# Every view is an inert <template>; app.js clones one and fills it with textContent only. #}
 
-<template id="v-welcome"><section>
+<template id="v-welcome"><section class="hero">
   <h1 tabindex="-1">Private messages over Tor</h1>
-  <p>Tor-Mail is a small, closed messaging service reachable only as a Tor onion service. You sign up with just a username and a password:
+  <p class="lead">A small, closed messaging service reachable only as a Tor onion service. Sign up with just a username and a password:
     no email address, no phone number.</p>
-  <p>Messages are encrypted in your browser before they are sent, so the server stores only ciphertext it cannot read.</p>
+  <p data-auth="out" hidden><a class="button" href="/register" data-link>Create an account</a> <a class="button secondary" href="/login" data-link>Sign in</a></p>
+  <p data-auth="in" hidden><a class="button" href="/inbox" data-link>Go to your inbox</a> <a class="button secondary" href="/compose" data-link>Write a message</a></p>
+  <ul class="features">
+    <li><strong>Encrypted in your browser</strong><span>The server stores only ciphertext it cannot read.</span></li>
+    <li><strong>No personal details</strong><span>No email, phone number or IP address is stored.</span></li>
+    <li><strong>You hold the key</strong><span>Your private key never leaves your browser unencrypted.</span></li>
+  </ul>
   <div class="notice">
     <h2>Your address is not an email address</h2>
     <p>Addresses look like <code data-role="example">username@service.onion</code> but only work <strong>between people registered on this service</strong>.
@@ -20,11 +26,9 @@
     </ul>
     <p><a href="/privacy" data-link>Read the privacy policy</a>.</p>
   </div>
-  <p data-auth="out" hidden><a class="button" href="/register" data-link>Create an account</a> <a class="button secondary" href="/login" data-link>Sign in</a></p>
-  <p data-auth="in" hidden><a class="button" href="/inbox" data-link>Go to your inbox</a></p>
 </section></template>
 
-<template id="v-register"><section>
+<template id="v-register"><section class="card narrow">
   <h1 tabindex="-1">Create an account</h1>
   <p>No personal information is needed. Pick a username and a strong password.</p>
   <form data-role="form" novalidate>
@@ -42,7 +46,7 @@
   <p>Already registered? <a href="/login" data-link>Sign in</a>.</p>
 </section></template>
 
-<template id="v-login"><section>
+<template id="v-login"><section class="card narrow">
   <h1 tabindex="-1">Sign in</h1>
   <form data-role="form" novalidate>
     <label for="login-user">Username</label>
@@ -173,6 +177,7 @@
   <section aria-labelledby="h-key">
     <h2 id="h-key">Key lock</h2>
     <p data-role="lockstate"></p>
+    <p class="hint">Your key also locks by itself after 15 minutes without activity.</p>
     <button type="button" class="secondary" data-role="lock">Lock key now</button>
   </section>
 

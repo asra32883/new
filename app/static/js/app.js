@@ -106,7 +106,7 @@
       clear(container); say('Unlocked.');
       if (onDone) { await onDone(); }
     }));
-    container.appendChild(form);
+    container.appendChild(form); addPasswordToggles(form.parentNode);
   }
 
   // ---- router -----------------------------------------------------------------------------------------------
@@ -139,6 +139,36 @@
     return render();
   }
 
+  // Marks the nav link for the current page (screen readers and a visual highlight).
+  function markCurrentNav() {
+    Array.prototype.forEach.call(document.querySelectorAll('#nav a'), function (a) {
+      var here = a.getAttribute('href') === location.pathname || (a.getAttribute('href') === '/inbox' && location.pathname.indexOf('/message/inbox') === 0)
+        || (a.getAttribute('href') === '/sent' && location.pathname.indexOf('/message/sent') === 0);
+      if (here) { a.setAttribute('aria-current', 'page'); } else { a.removeAttribute('aria-current'); }
+    });
+  }
+
+  // One "Show password" checkbox per form that has password fields. Typing a password blind on a phone is the
+  // most common cause of failed sign-ups, and the field is never shown unless the person asks.
+  var toggleSeq = 0;
+  function addPasswordToggles(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('form'), function (form) {
+      var fields = form.querySelectorAll('input[type=password]');
+      if (!fields.length || form.querySelector('[data-role=showpw]')) { return; }
+      var id = 'showpw-' + (++toggleSeq), label = document.createElement('label'), box = document.createElement('input');
+      label.className = 'check'; label.setAttribute('for', id); label.setAttribute('data-role', 'showpw');
+      box.type = 'checkbox'; box.id = id;
+      label.appendChild(box); label.appendChild(document.createTextNode('Show password' + (fields.length > 1 ? 's' : '')));
+      box.addEventListener('change', function () {
+        Array.prototype.forEach.call(fields, function (f) { f.type = box.checked ? 'text' : 'password'; });
+      });
+      fields[fields.length - 1].insertAdjacentElement('afterend', label);
+      // keep hints that belong to the last field above the toggle
+      var next = label.nextElementSibling;
+      while (next && next.classList.contains('hint')) { var h = next; next = next.nextElementSibling; label.insertAdjacentElement('beforebegin', h); }
+    });
+  }
+
   async function render() {
     var id = ++app.rid;
     if (app.cleanup) { try { app.cleanup(); } catch (e) { /* ignore */ } app.cleanup = null; }
@@ -165,6 +195,8 @@
     document.title = view.title + ' - Tor-Mail';
     if (app.flash) { say(app.flash.msg, app.flash.err); app.flash = null; } else { say(''); }
     updateChrome();
+    addPasswordToggles(root);
+    markCurrentNav();
     var h1 = $('h1', root);
     if (h1) { h1.focus(); }
     window.scrollTo(0, 0);
@@ -601,6 +633,18 @@
 
     return refresh().then(function () { return { node: node, title: 'Encryption keys' }; });
   }
+
+  // Auto-lock: an unlocked key left in a forgotten tab is a risk. After 15 idle minutes the key is dropped from memory
+  // and the current view is rebuilt, so decrypted text disappears from the page too.
+  var LOCK_AFTER_MS = 15 * 60 * 1000, lastActive = Date.now();
+  ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach(function (n) {
+    document.addEventListener(n, function () { lastActive = Date.now(); }, { passive: true, capture: true });
+  });
+  setInterval(function () {
+    if (M.state.unlocked.length && Date.now() - lastActive > LOCK_AFTER_MS) {
+      M.lock(); app.flash = { msg: 'Your key was locked after 15 minutes without activity.', err: false }; render();
+    }
+  }, 20000);
 
   render();
 })();

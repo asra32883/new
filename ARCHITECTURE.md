@@ -208,5 +208,7 @@ Browser-side crypto is tested with a headless-browser or Node harness using the 
 - Search is client-side over decrypted messages already loaded; the server cannot search ciphertext.
 - Trust indicators on each message: decryption, signature (valid/invalid/unsigned/unverified), whether the sender's key changed since first use, and whether you verified the fingerprint. Nothing is shown as "secure" that was not checked.
 - Static files: gzip and content-hash URLs (`?v=`, immutable). Pages and API responses are never compressed or cached (BREACH, secrets).
+- Usability: show-password toggle, current-page highlight in the nav, card layout, auto-lock of the key after 15 idle minutes (the view is rebuilt so decrypted text leaves the page).
+- Speed: scripts load with `defer`; static files are gzip + immutable-cached.
 - Accessibility: skip link, labelled forms, live status region, 44px targets, light/dark themes, no animation; axe-core WCAG 2.1 AA audit in `tests/e2e` (`npm ci` in `tests/e2e/axe` to enable).
 - `TORMAIL_OPERATOR_CONTACT` is shown on the privacy page.
