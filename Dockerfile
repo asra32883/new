@@ -10,8 +10,8 @@ RUN groupadd --system --gid 10002 tormail && \
     install -d -o 10001 -g 10002 -m 0750 /run/tormail
 WORKDIR /srv/tormail
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+COPY requirements.lock .
+RUN pip install --require-hashes --no-deps -r requirements.lock
 
 COPY alembic.ini ./
 COPY migrations ./migrations

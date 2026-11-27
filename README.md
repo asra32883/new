@@ -54,3 +54,8 @@ python -m pytest tests/e2e                                # real server + headle
 ## Layout
 
 See `ARCHITECTURE.md` section 5.1.
+
+## Dependencies
+`requirements.in` lists direct runtime dependencies; `requirements.lock` is the hash-pinned full set used by the Docker build
+(`pip install --require-hashes`). Regenerate with `pip-compile --generate-hashes --allow-unsafe -o requirements.lock requirements.in`, then run `pip-audit -r requirements.lock` and the test suite.
+Docs: `docs/INSTALL.md` (install, Fedora, PostgreSQL, updates, backup, troubleshooting), `docs/PRIVACY_POLICY_TEMPLATE.md`, `docs/SECURITY_REVIEW.md`, `deployment/TOR.md`.

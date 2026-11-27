@@ -97,7 +97,7 @@ WantedBy=timers.target
 ```bash
 git fetch && git log --oneline HEAD..origin/main      # read what changes
 git verify-commit origin/main || true                  # if you sign releases
-pip-audit -r requirements.txt                          # dependency advisories
+pip-audit -r requirements.lock                        # dependency advisories
 docker compose build --pull && docker compose up -d   # migrations run on start (alembic upgrade head)
 ```
 Take a database backup first (section 7). A bad migration can only be undone from a backup. The vendored
