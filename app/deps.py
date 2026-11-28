@@ -37,7 +37,7 @@ class AuthContext:
     csrf: str
 
 
-def current_auth(request: Request, db: Session = Depends(get_db)) -> AuthContext:
+def authenticate(request: Request, db: Session) -> AuthContext:
     settings: Settings = request.app.state.settings
     token = request.cookies.get(cookie_name(settings))
     if not token or len(token) > 128:
@@ -47,6 +47,10 @@ def current_auth(request: Request, db: Session = Depends(get_db)) -> AuthContext
     if session is None or user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     return AuthContext(user, session, token, auth_service.csrf_token(request.app.state.secret, session))
+
+
+def current_auth(request: Request, db: Session = Depends(get_db)) -> AuthContext:
+    return authenticate(request, db)
 
 
 def require_csrf(request: Request, auth: AuthContext = Depends(current_auth)) -> AuthContext:

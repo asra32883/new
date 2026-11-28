@@ -53,6 +53,14 @@ class Settings(BaseSettings):
     page_size_max: int = Field(default=50, ge=1)
     max_request_bytes: int = Field(default=512 * 1024, ge=1024)
 
+    # Chat
+    chat_max_message_bytes: int = Field(default=64 * 1024, ge=1024)
+    chat_max_blob_bytes: int = Field(default=2 * 1024 * 1024, ge=1024)   # encrypted attachment, per file
+    chat_max_members: int = Field(default=50, ge=2)
+    chat_send_per_minute: int = Field(default=60, ge=1)
+    chat_blobs_per_day: int = Field(default=100, ge=1)
+    chat_new_per_hour: int = Field(default=30, ge=1)
+
     # Shown on the privacy page. Plain text; set it to how users can reach the operator.
     operator_contact: str = Field(default="", max_length=300)
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 from pathlib import Path
 
@@ -13,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.config import Settings, get_settings
 from app.database import make_engine
-from app.routes import account, auth, health, keys, mailbox, pages
+from app.routes import account, auth, chats, health, keys, mailbox, pages
 from app.security.headers import BodySizeLimitMiddleware, SecurityHeadersMiddleware, StaticOnlyGzip
 from app.security.passwords import PasswordService
 
@@ -39,6 +40,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Outside production an unset key is replaced by a random per-process one (production refuses to start without it).
     app.state.secret = settings.secret_key.encode() if settings.secret_key else secrets.token_bytes(32)
     app.state.passwords = PasswordService(settings)
+    app.state.chat_waiters = {}   # user id -> events of open long-poll requests (in-process wake-ups)
 
     if not settings.cookie_secure:
         log.warning("event=insecure_config detail=cookie_secure_disabled")
@@ -50,7 +52,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse({"detail": errors}, status_code=422)
 
     app.add_middleware(StaticOnlyGzip)
-    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
+    blob_path = re.compile(r"^/api/chats/[0-9a-fA-F-]{36}/blobs$")
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes,
+                       overrides=[(blob_path, settings.chat_max_blob_bytes + 1024)])
     app.add_middleware(SecurityHeadersMiddleware)
 
     app.include_router(health.router)
@@ -58,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(account.router)
     app.include_router(mailbox.router)
     app.include_router(keys.router)
+    app.include_router(chats.router)
     app.include_router(pages.router)
     app.state.assets = pages.asset_manifest()   # static files are fixed for the life of the process
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")

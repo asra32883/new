@@ -13,7 +13,7 @@ BASE = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=BASE / "templates")
 router = APIRouter()
 
-UI_ROUTES = ["/", "/register", "/login", "/inbox", "/sent", "/trash", "/compose", "/settings", "/keys", "/privacy"]
+UI_ROUTES = ["/", "/register", "/login", "/inbox", "/sent", "/trash", "/compose", "/settings", "/keys", "/privacy", "/chats", "/chats/new"]
 
 
 def asset_manifest() -> dict[str, str]:
@@ -49,6 +49,11 @@ for _path in UI_ROUTES:
 
 @router.get("/message/{folder}/{message_id}", response_class=HTMLResponse, include_in_schema=False)
 def message_page(request: Request, folder: Literal["inbox", "sent", "trash"], message_id: uuid.UUID):
+    return _shell(request)
+
+
+@router.get("/chats/{chat_id}", response_class=HTMLResponse, include_in_schema=False)
+def chat_page(request: Request, chat_id: uuid.UUID):
     return _shell(request)
 
 

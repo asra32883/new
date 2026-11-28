@@ -1,6 +1,8 @@
 """Security headers and request-size limiting, implemented as pure ASGI middleware."""
 from __future__ import annotations
 
+import re
+
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -59,19 +61,27 @@ class SecurityHeadersMiddleware:
 class BodySizeLimitMiddleware:
     """Rejects request bodies larger than max_bytes, by header and while streaming."""
 
-    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
+    def __init__(self, app: ASGIApp, max_bytes: int, overrides: list[tuple[re.Pattern, int]] | None = None) -> None:
         self.app = app
         self.max_bytes = max_bytes
+        self.overrides = overrides or []     # (POST path pattern, larger limit): e.g. encrypted chat attachments
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
+        limit = self.max_bytes
+        if scope.get("method") == "POST":
+            for pattern, bigger in self.overrides:
+                if pattern.match(scope["path"]):
+                    limit = bigger
+                    break
+
         declared = dict(scope.get("headers", [])).get(b"content-length")
         if declared is not None:
             try:
-                too_big = int(declared) > self.max_bytes
+                too_big = int(declared) > limit
             except ValueError:
                 too_big = True
             if too_big:
@@ -85,7 +95,7 @@ class BodySizeLimitMiddleware:
             message = await receive()
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
-                if received > self.max_bytes:
+                if received > limit:
                     raise _TooLarge()
             return message
 

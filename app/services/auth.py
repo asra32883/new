@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.models import Folder, Message, MessageRecipient, User, UserSession, utcnow
 from app.models.mail import FOLDER_KINDS
+from app.services import chat as chat_service
 from app.security import policy, pow as powmod, ratelimit
 from app.security.passwords import PasswordService
 
@@ -211,6 +212,7 @@ def delete_account(
     """
     verify_user_password(db, settings, secret, pw, user.username, password)
     uid = user.id
+    chat_service.on_account_deleted(db, uid)
     db.execute(delete(MessageRecipient).where(MessageRecipient.recipient_id == uid))
     db.execute(update(Message).where(Message.sender_id == uid).values(sender_id=None))
     orphans = ~select(MessageRecipient.message_id).where(MessageRecipient.message_id == Message.id).exists()
