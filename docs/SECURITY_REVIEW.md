@@ -23,6 +23,12 @@ Reviewer: the author (self-review, not independent). **No external audit has bee
 ## Corrections made during this review
 - T16 claimed hash-pinned Python dependencies; only versions were pinned. Fixed: `requirements.lock` with hashes is now what the image installs.
 
+## Chat review (added later)
+Verified by tests (SQLite and PostgreSQL for the API, real Chromium for the UI): non-member isolation on every endpoint (404, no existence oracle); CSRF and auth; stale membership versions refused; history hidden from people who join later; sender-only deletion that removes ciphertext and attachments; disappearing-message expiry and purge; attachment ownership, size and lifecycle limits; probing for usernames is rate limited; account deletion bumps membership versions; long-poll wake-up and removal notices; plaintext never reaches the database; image metadata removal on real JPEG/PNG/WebP/GIF files; axe-core WCAG audit of every chat screen in light and dark; phone layout.
+Not verified: behaviour with many members or very large histories, multi-worker deployments (wake-ups then arrive within 5 s instead of immediately), long polls through a real Tor circuit, Tor Browser's handling of `blob:` image URLs and downloads, voice or video (not implemented).
+Not implemented on purpose: typing indicators, online/last-seen status, bots, public channels, cloud-searchable history, calls. They would add metadata or need the server to read content.
+Not implemented yet: renaming a group, promoting a second admin, per-message disappearing timers, forward secrecy.
+
 ## Residual risks (accepted, stated to users)
 1. **Malicious or compromised server delivers malicious JavaScript (T9).** Inherent to webmail. Published asset hashes help only users/auditors who actually compare them. A native client or a signed browser extension would be the mitigation.
 2. **Public-key substitution (T10)** for users who never verify fingerprints. TOFU pinning only detects later changes.

@@ -9,7 +9,7 @@
  */
 (function () {
   'use strict';
-  var C = window.TorMailCrypto, M = window.TorMail;
+  var C = window.TorMailCrypto, M = window.TorMail, T = window.TorChat;
 
   // ---- helpers ------------------------------------------------------------------------------------------
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -59,6 +59,9 @@
     $('#who').textContent = signedIn ? '(' + M.state.username + ')' : '';
     var bar = $('#keybar'), st = $('#keystate');
     bar.hidden = !signedIn;
+    if (signedIn && !app.chatOn) { app.chatOn = true; T.start(); }
+    if (!signedIn && app.chatOn) { app.chatOn = false; T.stop(); }
+    updateBadge();
     if (!signedIn) { return; }
     clear(st);
     // These words describe the real state of your key in this browser. They are not a claim about the connection.
@@ -73,6 +76,13 @@
     }
   }
   M.onChange(updateChrome);
+  function updateBadge() {
+    var b = $('#chat-badge'), n = M.state.username ? T.unreadTotal() : 0;
+    if (!b) { return; }
+    b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n);
+    b.setAttribute('aria-label', n + ' chats with unread messages');
+  }
+  T.onChange(function (type) { if (type === 'signedout') { sessionExpired(); } else if (type === 'chats') { updateBadge(); } });
 
   function onError(e) {
     if (e && e.status === 401) { sessionExpired(); return; }
@@ -121,6 +131,10 @@
     { re: /^\/keys$/, view: viewKeys, auth: true },
     { re: /^\/privacy$/, view: viewPrivacy, auth: null },
   ];
+
+  var helpers = { $: $, role: role, clone: clone, clear: clear, el: el, say: say, fmt: fmt, fmtSize: fmtSize, guard: guard,
+    mountUnlock: mountUnlock, navigate: function (p, r) { return navigate(p, r); }, onError: function (e) { return onError(e); } };
+  routes = routes.concat(window.TorChatUI.install(helpers));
 
   function match(path) {
     for (var i = 0; i < routes.length; i++) {
@@ -200,6 +214,7 @@
     var h1 = $('h1', root);
     if (h1) { h1.focus(); }
     window.scrollTo(0, 0);
+    if (view.after) { view.after(); }
   }
 
   document.addEventListener('click', function (ev) {
@@ -487,6 +502,8 @@
     }
     lockState();
     role(node, 'lock').addEventListener('click', function () { M.lock(); lockState(); say('Key locked.'); });
+    var rc = role(node, 'receipts'); rc.checked = T.prefs().receipts;
+    rc.addEventListener('change', function () { T.setPref('receipts', rc.checked); say(rc.checked ? 'Read receipts are on.' : 'Read receipts are off.'); });
 
     role(node, 'pwform').addEventListener('submit', guard(async function () {
       var cur = $('#pw-current', node), n1 = $('#pw-new', node), n2 = $('#pw-new2', node);

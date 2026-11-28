@@ -22,14 +22,16 @@
   var state = { csrf: null, username: null, unlocked: [] };
   var listeners = [];
   function emit() { listeners.forEach(function (f) { try { f(); } catch (e) { /* listener errors must not break crypto state */ } }); }
+  var recipCache = {};  // recipient keys already checked against the pins (short-lived)
   var keyCache = {};   // sender public keys looked up while reading mail (cleared on lock, logout, login)
 
   async function request(method, path, body) {
     var headers = { 'Accept': 'application/json' };
-    if (body !== undefined) { headers['Content-Type'] = 'application/json'; }
+    var raw = body instanceof Uint8Array;                       // encrypted attachments are sent as raw bytes
+    if (body !== undefined) { headers['Content-Type'] = raw ? 'application/octet-stream' : 'application/json'; }
     if (method !== 'GET' && state.csrf) { headers['X-CSRF-Token'] = state.csrf; }
     var res = await fetch(path, { method: method, headers: headers, credentials: 'same-origin', cache: 'no-store',
-      body: body === undefined ? undefined : JSON.stringify(body) });
+      body: body === undefined ? undefined : (raw ? body : JSON.stringify(body)) });
     if (res.status === 204) { return null; }
     var data = null;
     try { data = await res.json(); } catch (e) { /* non-JSON error */ }
@@ -39,6 +41,12 @@
         res.headers.get('Retry-After'));
     }
     return data;
+  }
+
+  async function requestBytes(path) {
+    var res = await fetch(path, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (!res.ok) { throw new ApiError(res.status, 'Request failed'); }
+    return new Uint8Array(await res.arrayBuffer());
   }
 
   // ---- account ------------------------------------------------------------------------------------------
@@ -51,17 +59,17 @@
     var ch = await request('GET', '/api/auth/pow-challenge');
     var nonce = await C.solvePow(ch.challenge, onProgress);
     var me = await request('POST', '/api/auth/register', { username: username, password: password, pow_challenge: ch.challenge, pow_nonce: nonce });
-    state.csrf = me.csrf_token; state.username = me.username; state.unlocked = []; keyCache = {}; emit();
+    state.csrf = me.csrf_token; state.username = me.username; state.unlocked = []; keyCache = {}; recipCache = {}; emit();
     return me;
   }
   async function login(username, password) {
     var me = await request('POST', '/api/auth/login', { username: username, password: password });
-    state.csrf = me.csrf_token; state.username = me.username; state.unlocked = []; keyCache = {}; emit();
+    state.csrf = me.csrf_token; state.username = me.username; state.unlocked = []; keyCache = {}; recipCache = {}; emit();
     return me;
   }
   async function logout() {
     await request('POST', '/api/auth/logout');
-    state.csrf = null; state.username = null; state.unlocked = []; keyCache = {};   // drop unlocked keys with the session
+    state.csrf = null; state.username = null; state.unlocked = []; keyCache = {}; recipCache = {};   // drop unlocked keys with the session
     emit();
   }
 
@@ -87,7 +95,7 @@
     emit();
     return state.unlocked.length;
   }
-  function lock() { state.unlocked = []; keyCache = {}; emit(); }
+  function lock() { state.unlocked = []; keyCache = {}; recipCache = {}; emit(); }
   function forgetLocalData(username) {
     try { localStorage.removeItem(storeKey(username)); localStorage.removeItem('tormail:contacts:' + username); } catch (e) { /* ignore */ }
   }
@@ -110,7 +118,7 @@
   function saveContacts(c) { try { localStorage.setItem(contactsKey(), JSON.stringify(c)); } catch (e) { /* storage unavailable */ } }
   function markVerified(username, fingerprint) {
     var c = contacts(); c[username] = { fingerprint: fingerprint, verified: true }; saveContacts(c);
-    delete keyCache[username];
+    delete keyCache[username]; delete recipCache[username];
   }
 
   // opts.acceptChange: allow a changed key and re-pin it (send flow, after the user agreed).
@@ -175,6 +183,39 @@
     };
   }
 
+  // ---- helpers for chat -------------------------------------------------------------------------------------
+  // Your signing key and public key, checked against the fingerprint the server holds.
+  async function identity() {
+    if (!state.unlocked.length) { throw new Error('Unlock your key first'); }
+    var mine = await getMyKey();
+    if (!mine) { throw new Error('Set up your encryption key first'); }
+    var pub = await C.readPublicKey(mine.public_key);
+    if (C.fingerprintOf(pub) !== mine.fingerprint) { throw new Error('Your key on the server does not match its fingerprint'); }
+    var signer = state.unlocked.filter(function (k) { return C.fingerprintOf(k) === mine.fingerprint; })[0];
+    if (!signer) { throw new Error('The unlocked key is not your current key. Import the backup for your current key.'); }
+    return { signer: signer, publicKey: mine.public_key, fingerprint: mine.fingerprint };
+  }
+  // Pinned (trust-on-first-use) public keys for people you are about to encrypt to. A changed key throws
+  // KeyChangedError unless the caller lists that username in opts.accept. Checked keys are reused for 5 minutes.
+  async function recipientKeys(usernames, opts) {
+    opts = opts || {};
+    var out = [], now = Date.now();
+    for (var i = 0; i < usernames.length; i++) {
+      var n = usernames[i], hit = recipCache[n];
+      if (hit && now - hit.t < 300000 && (opts.accept || []).indexOf(n) === -1) { out.push(hit.armored); continue; }
+      var k = await fetchVerifiedKey(n, { acceptChange: (opts.accept || []).indexOf(n) !== -1 });
+      recipCache[n] = { t: now, armored: k.armored };
+      out.push(k.armored);
+    }
+    return out;
+  }
+  // Keys used only to check signatures on things you read. Never touches the pins.
+  async function senderKey(username) {
+    if (!username) { return null; }
+    try { return keyCache[username] || (keyCache[username] = await fetchVerifiedKey(username, { readOnly: true })); }
+    catch (e) { delete keyCache[username]; return null; }
+  }
+
   function list(folder, cursor, limit) {
     var q = [];
     if (cursor) { q.push('cursor=' + encodeURIComponent(cursor)); }
@@ -183,13 +224,13 @@
   }
 
   root.TorMail = {
-    ApiError: ApiError, KeyChangedError: KeyChangedError, state: state, request: request,
+    ApiError: ApiError, KeyChangedError: KeyChangedError, state: state, request: request, requestBytes: requestBytes,
     session: session, register: register, login: login, logout: logout,
     localKeys: localKeys, addLocalKey: addLocalKey, unlockLocal: unlockLocal, lock: lock, forgetLocalData: forgetLocalData,
-    onChange: function (f) { listeners.push(f); },
+    onChange: function (f) { listeners.push(f); return function () { listeners = listeners.filter(function (x) { return x !== f; }); }; },
     getMyKey: getMyKey, putMyKey: putMyKey, deleteServerBackup: deleteServerBackup, fetchServerBackup: fetchServerBackup,
     fetchVerifiedKey: fetchVerifiedKey, contacts: contacts, markVerified: markVerified,
-    send: send, open: open, list: list,
+    send: send, open: open, list: list, identity: identity, recipientKeys: recipientKeys, senderKey: senderKey,
     del: function (folder, id) { return request('DELETE', '/api/mailbox/' + folder + '/' + id); },
     setRead: function (id, v) { return request('POST', '/api/mailbox/inbox/' + id + '/read', { is_read: v }); },
   };

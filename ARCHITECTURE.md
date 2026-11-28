@@ -212,3 +212,11 @@ Browser-side crypto is tested with a headless-browser or Node harness using the 
 - Speed: scripts load with `defer`; static files are gzip + immutable-cached.
 - Accessibility: skip link, labelled forms, live status region, 44px targets, light/dark themes, no animation; axe-core WCAG 2.1 AA audit in `tests/e2e` (`npm ci` in `tests/e2e/axe` to enable).
 - `TORMAIL_OPERATOR_CONTACT` is shown on the privacy page.
+
+
+## Chat
+- Tables: `chats`, `chat_members` (role, joined_seq, last_read_seq, hidden), `chat_messages` (per-chat seq, ciphertext, expires_at, tombstone), `chat_blobs`.
+- Events inside the encrypted payload: `msg`, `edit`, `react` (group names in a `meta` payload). The server never parses them.
+- Group keys: each message is one OpenPGP ciphertext encrypted to every current member plus the sender. `members_version` guards against stale member lists.
+- Live sync: `GET /api/chats?wait=25&after=<cursor>`; wake-ups in process, 5 s re-check for multi-worker setups, no DB session while waiting.
+- Attachments: `files.js` strips metadata, `chat.js` encrypts and uploads raw bytes (`POST /api/chats/{id}/blobs`, own body limit), recipients download and decrypt in the browser; previews use `blob:` images (the only CSP relaxation).

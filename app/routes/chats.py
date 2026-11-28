@@ -68,11 +68,13 @@ def _member_ids(db: Session, chat_id: uuid.UUID) -> list[uuid.UUID]:
     return list(db.scalars(select(ChatMember.user_id).where(ChatMember.chat_id == chat_id)))
 
 
-def _notify(request: Request, user_ids: list[uuid.UUID]) -> None:
-    """Wakes long-polling clients in this process."""
+def _notify(request: Request, user_ids: list[uuid.UUID], full: bool = False) -> None:
+    """Wakes long-polling clients in this process. `full` tells them to re-read their whole chat list (a chat vanished)."""
     waiters = request.app.state.chat_waiters
     for uid in user_ids:
         for ev in list(waiters.get(uid, ())):
+            if full:
+                ev.full = True
             ev.set()
 
 
@@ -139,6 +141,8 @@ async def updates(request: Request, after: str | None = Query(None, max_length=4
             ev.clear()
             if await request.is_disconnected():
                 break
+            if getattr(ev, "full", False):
+                return {"items": [], "cursor": svc._iso(started), "full": True}
             _, items = await run_in_threadpool(query)
             if items:
                 break
@@ -234,7 +238,7 @@ def remove_member(chat_id: uuid.UUID, username: str, request: Request, members_v
         svc.remove_member(db, auth.user, chat_id, username, members_version)
     except svc.ChatError as e:
         raise _fail(e) from None
-    _notify(request, before)
+    _notify(request, before, full=True)
     return Response(status_code=204)
 
 

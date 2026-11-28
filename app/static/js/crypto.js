@@ -138,6 +138,51 @@
     return { payload: payload, signature: signature };
   }
 
+  // ---- generic signed + encrypted payloads (chat) ----------------------------------------------------------
+  async function readKeys(armoredList) {
+    var keys = [], seen = {};
+    for (var i = 0; i < armoredList.length; i++) {
+      var k = await readPublicKey(armoredList[i]);
+      if (!seen[fingerprintOf(k)]) { seen[fingerprintOf(k)] = 1; keys.push(k); }
+    }
+    return keys;
+  }
+  async function signatureState(res, haveKeys) {
+    if (!haveKeys) { return 'unverified'; }
+    if (!res.signatures.length) { return 'unsigned'; }
+    try { await res.signatures[0].verified; return 'valid'; } catch (e) { return 'invalid'; }
+  }
+  // args: { signingKey (unlocked), publics (armored[], recipients plus the sender), object }
+  async function encryptObject(args) {
+    var message = await pgp.createMessage({ text: JSON.stringify(args.object) });
+    return pgp.encrypt({ message: message, encryptionKeys: await readKeys(args.publics), signingKeys: args.signingKey, format: 'armored' });
+  }
+  // args: { armored, keys (unlocked), senderPublics (armored[]; empty = do not verify) }
+  async function decryptObject(args) {
+    var res;
+    try {
+      res = await pgp.decrypt({ message: await pgp.readMessage({ armoredMessage: args.armored }), decryptionKeys: args.keys,
+        verificationKeys: await readKeys(args.senderPublics || []), format: 'utf8' });
+    } catch (e) { throw new Error('Cannot decrypt: not encrypted to your key, or the data is damaged'); }
+    var object;
+    try { object = JSON.parse(res.data); } catch (e) { throw new Error('Malformed message contents'); }
+    if (!object || typeof object !== 'object' || Array.isArray(object)) { throw new Error('Malformed message contents'); }
+    return { object: object, signature: await signatureState(res, (args.senderPublics || []).length > 0) };
+  }
+  // Files: encrypted and signed like messages, returned as binary OpenPGP data (Uint8Array).
+  async function encryptBytes(args) {
+    var message = await pgp.createMessage({ binary: args.bytes });
+    return pgp.encrypt({ message: message, encryptionKeys: await readKeys(args.publics), signingKeys: args.signingKey, format: 'binary' });
+  }
+  async function decryptBytes(args) {
+    var res;
+    try {
+      res = await pgp.decrypt({ message: await pgp.readMessage({ binaryMessage: args.data }), decryptionKeys: args.keys,
+        verificationKeys: await readKeys(args.senderPublics || []), format: 'binary' });
+    } catch (e) { throw new Error('Cannot decrypt this file'); }
+    return { bytes: res.data, signature: await signatureState(res, (args.senderPublics || []).length > 0) };
+  }
+
   // ---- proof of work (registration) ---------------------------------------------------------------------
   function leadingZeroBits(bytes) {
     var n = 0;
@@ -171,5 +216,6 @@
     readPublicKey: readPublicKey, fingerprintOf: fingerprintOf, formatFingerprint: formatFingerprint,
     isPassphraseProtected: isPassphraseProtected, privateFingerprint: privateFingerprint, unlock: unlock,
     encryptMessage: encryptMessage, decryptMessage: decryptMessage, solvePow: solvePow,
+    encryptObject: encryptObject, decryptObject: decryptObject, encryptBytes: encryptBytes, decryptBytes: decryptBytes,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

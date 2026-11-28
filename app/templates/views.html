@@ -181,6 +181,12 @@
     <button type="button" class="secondary" data-role="lock">Lock key now</button>
   </section>
 
+  <section aria-labelledby="h-chatpriv">
+    <h2 id="h-chatpriv">Chat privacy</h2>
+    <label class="check"><input type="checkbox" data-role="receipts"> Let others see when I have read their chat messages</label>
+    <p class="hint">Off: people you chat with cannot tell whether you read their messages. Sending a message still shows that you were active, and this setting is kept in this browser only.</p>
+  </section>
+
   <section aria-labelledby="h-delete">
     <h2 id="h-delete">Delete account</h2>
     <p>Deleting your account removes your login, your public key and your mailbox. Messages you already sent <strong>stay in the recipients' mailboxes</strong>
@@ -308,11 +314,15 @@
   <h2>What the operator can and cannot see</h2>
   <p><strong>Can see:</strong> usernames, when accounts were created and last signed in, public keys, who sent messages to whom and when, message sizes and read state.</p>
   <p><strong>Cannot see</strong> (assuming the published, unmodified code is running and you chose a strong key passphrase): subjects, message text, your private key, your key passphrase, your login password.</p>
+  <p><strong>Chats:</strong> the operator can also see which chats exist, who is in each (and when that changes), who sent each chat message and when, message and file sizes, the disappearing-message timer, and how far each member has read (unless that person turned read receipts off).
+    It cannot see message text, replies, reactions, edits, file names or contents, or group names.</p>
   <p><strong>Important limit:</strong> this is a web application, so the server delivers the code that encrypts your messages. An operator who deliberately served altered code could read what you type.
     The hashes of the delivered files are published at <a href="/.well-known/assets.json">/.well-known/assets.json</a>.</p>
 
   <h2>Retention</h2>
   <ul>
+    <li>Chat messages stay until the sender deletes them, a disappearing-message timer runs out, or the chat is removed. Deleting or expiring a message removes the stored copy; it cannot recall copies already on someone's screen, in a screenshot, or in a backup made before.</li>
+    <li>Chat attachments are deleted with their message. An upload that is never sent is deleted after one hour.</li>
     <li>Messages you move to Trash are deleted permanently after <strong>{{ policy.trash_days }} days</strong>, or immediately when you delete them from Trash.</li>
     <li>Sessions end after <strong>{{ policy.idle_minutes }} minutes</strong> of inactivity or <strong>{{ policy.absolute_hours }} hours</strong> in total, whichever comes first.</li>
     <li>A message is removed from the server once the sender and every recipient have deleted their copy.</li>
@@ -338,4 +348,134 @@
 <template id="v-404"><section>
   <h1 tabindex="-1">Page not found</h1>
   <p><a href="/" data-link>Back to the start</a></p>
+</section></template>
+
+{# ---- chat ---- #}
+<template id="v-chats"><section class="chats" data-mode="list">
+  <aside class="chat-side" aria-label="Your chats">
+    <div class="chat-side-head">
+      <h1 tabindex="-1">Chats</h1>
+      <a class="button small" href="/chats/new" data-link>New chat</a>
+    </div>
+    <div data-role="unlock"></div>
+    <p class="hint" data-role="empty" hidden>No chats yet. Use <strong>New chat</strong> to start one with another user.</p>
+    <ul class="chatlist" data-role="list"></ul>
+  </aside>
+  <div class="chat-main" data-role="main"></div>
+</section></template>
+
+<template id="t-chatrow"><li>
+  <a class="chatrow" href="#" data-link>
+    <span class="avatar" aria-hidden="true" data-role="avatar"></span>
+    <span class="chatrow-body">
+      <span class="chatrow-top"><strong data-role="name"></strong><time data-role="time"></time></span>
+      <span class="chatrow-bottom"><span class="chatrow-preview" data-role="preview"></span><span class="badge" data-role="unread" hidden></span></span>
+    </span>
+  </a>
+</li></template>
+
+<template id="v-chat-empty"><div class="chat-empty">
+  <p><strong>Pick a chat</strong> or start a new one.</p>
+  <p class="hint">Messages, names of groups, and files are encrypted in your browser. The service can see who is in a chat, when messages are sent, and their size.</p>
+</div></template>
+
+<template id="v-thread"><div class="thread">
+  <header class="thread-head">
+    <a class="back" href="/chats" data-link aria-label="Back to all chats">&larr;</a>
+    <span class="avatar" aria-hidden="true" data-role="avatar"></span>
+    <div class="thread-title">
+      <h2 tabindex="-1" data-role="title"></h2>
+      <p class="hint" data-role="sub"></p>
+    </div>
+    <button type="button" class="secondary small" data-role="infobtn" aria-expanded="false">Info</button>
+  </header>
+  <div data-role="unlock"></div>
+  <div class="notice warn" data-role="membernote" hidden></div>
+  <div class="notice warn" data-role="keynote" hidden>
+    <p data-role="keynote-text"></p>
+    <button type="button" data-role="keynote-yes">Send anyway</button>
+    <button type="button" class="secondary" data-role="keynote-no">Cancel</button>
+  </div>
+  <section class="info" data-role="info" hidden aria-label="Chat information"></section>
+  <div class="thread-body" data-role="body">
+    <button type="button" class="secondary small" data-role="older" hidden>Load earlier messages</button>
+    <div role="log" aria-live="polite" aria-label="Messages"><ol class="log" data-role="log"></ol></div>
+    <p class="hint thread-empty" data-role="empty" hidden>No messages yet. Say hello.</p>
+  </div>
+  <form class="composer" data-role="composer" novalidate>
+    <div class="replybar" data-role="replybar" hidden><span data-role="replytext"></span><button type="button" class="linklike" data-role="replycancel">Cancel</button></div>
+    <ul class="attachbar" data-role="attachbar" hidden></ul>
+    <p class="hint" data-role="attachnote" hidden></p>
+    <div class="composer-row">
+      <button type="button" class="secondary icon" data-role="attach" aria-label="Attach files">Attach</button>
+      <input type="file" multiple data-role="file" class="visually-hidden" tabindex="-1" aria-hidden="true">
+      <label for="chat-text" class="visually-hidden">Message</label>
+      <textarea id="chat-text" rows="1" maxlength="8000" placeholder="Write a message" autocomplete="off" data-role="text"></textarea>
+      <button type="submit" data-role="send">Send</button>
+    </div>
+  </form>
+</div></template>
+
+<template id="t-bubble"><li class="bubble-row">
+  <article class="bubble">
+    <p class="bubble-from" data-role="from"></p>
+    <blockquote class="bubble-reply" data-role="reply" hidden></blockquote>
+    <div class="bubble-files" data-role="files"></div>
+    <p class="bubble-text" data-role="text"></p>
+    <p class="bubble-meta"><time data-role="time"></time><span data-role="edited" hidden>edited</span><span data-role="expires" hidden></span><span class="ticks" data-role="ticks"></span></p>
+    <p class="bubble-warn" data-role="warn" hidden></p>
+    <div class="reactions" data-role="reactions" hidden></div>
+    <div class="picker" data-role="picker" role="group" aria-label="Choose a reaction" hidden></div>
+    <div class="bubble-actions">
+      <button type="button" class="linklike" data-act="reply">Reply</button>
+      <button type="button" class="linklike" data-act="react" aria-expanded="false">React</button>
+      <button type="button" class="linklike" data-act="edit" hidden>Edit</button>
+      <button type="button" class="linklike" data-act="delete" hidden>Delete</button>
+    </div>
+  </article>
+</li></template>
+
+<template id="t-info"><div>
+  <h3>Members</h3>
+  <p class="hint" data-role="memberhint"></p>
+  <ul class="members" data-role="members"></ul>
+  <form data-role="addform" hidden novalidate>
+    <label for="add-members">Add people (usernames separated by spaces or commas)</label>
+    <input id="add-members" type="text" autocomplete="off" autocapitalize="none" spellcheck="false">
+    <button type="submit">Add</button>
+    <p class="hint">New people can read messages sent after they join, not earlier ones.</p>
+  </form>
+  <h3>Disappearing messages</h3>
+  <label for="ttl-select" class="visually-hidden">Delete new messages after</label>
+  <select id="ttl-select" data-role="ttl"></select>
+  <p class="hint">New messages are deleted from the server after this time and hidden from everyone's screen. It cannot stop someone from copying or photographing a message, or a modified server from keeping it.</p>
+  <h3>This chat</h3>
+  <button type="button" class="secondary" data-role="hide" hidden>Clear and hide this chat for me</button>
+  <button type="button" class="danger" data-role="leave" hidden>Leave group</button>
+</div></template>
+
+<template id="v-newchat"><section class="card">
+  <h1 tabindex="-1">New chat</h1>
+  <div data-role="unlock"></div>
+  <form data-role="direct" novalidate>
+    <h2>One-to-one</h2>
+    <label for="nc-user">Username</label>
+    <input id="nc-user" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" required maxlength="64">
+    <button type="submit">Start chat</button>
+  </form>
+  <form data-role="group" novalidate>
+    <h2>Group</h2>
+    <label for="nc-title">Group name</label>
+    <input id="nc-title" type="text" autocomplete="off" required maxlength="80" aria-describedby="nc-title-hint">
+    <p id="nc-title-hint" class="hint">The name is encrypted too. The service cannot read it.</p>
+    <label for="nc-members">Members (usernames separated by spaces or commas)</label>
+    <input id="nc-members" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+    <button type="submit">Create group</button>
+  </form>
+  <div class="notice warn" data-role="keynote" hidden>
+    <p data-role="keynote-text"></p>
+    <button type="button" data-role="keynote-yes">Continue anyway</button>
+    <button type="button" class="secondary" data-role="keynote-no">Cancel</button>
+  </div>
+  <p class="hint">Everyone must have created an encryption key first.</p>
 </section></template>

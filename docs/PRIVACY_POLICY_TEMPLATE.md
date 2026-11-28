@@ -19,6 +19,11 @@ Can: usernames, account creation and last-login times, public keys, who wrote to
 Cannot (unmodified software, strong key passphrase): subjects, bodies, recipients inside messages, private keys, passwords.
 Limit: a web app delivers its own code; an operator, or an attacker who controls the server, could serve altered code.
 
+## Chats
+Stored: chat membership and roles, per-message sender and time, ciphertext (text, replies, reactions, edits, file names, group names are inside it), encrypted attachments, the disappearing-message timer, and each member's read position.
+Operator can see: who is in which chat and when that changes, who sent what and when, sizes, timers, read positions. Cannot see: the contents listed above.
+Retention: until deleted by the sender, expired by the timer (default: no timer), or the chat is removed. Unsent uploads are deleted after 1 hour. Backups are covered by the backup policy below.
+
 ## Retention
 Trash purged after __ days (default 30). Sessions expire after 30 min idle / 12 h. Counters expire within hours.
 Backups: kept for ____ days, encrypted, stored at ____. Deleted data may persist in backups until they rotate out.

@@ -8,7 +8,8 @@ import pytest
 pytestmark = pytest.mark.e2e
 
 LOGIN_PW = "login password 12345"
-PASS = {"alice": "alice key passphrase one", "bobby": "bobby key passphrase two", "mallory": "mallory key passphrase 3"}
+PASS = {"alice": "alice key passphrase one", "bobby": "bobby key passphrase two", "mallory": "mallory key passphrase 3",
+        "carol": "carol key passphrase four"}
 
 
 def wait(page, expr, timeout=30000):
@@ -30,7 +31,7 @@ class Session:
         self.ctx = browser.new_context(accept_downloads=True)
         self.page = self.ctx.new_page()
         self.audit = audit
-        self.page.on("request", lambda r: audit["requests"].append((r.method, r.url, r.post_data or "")))
+        self.page.on("request", lambda r: audit["requests"].append((r.method, r.url, (r.post_data_buffer or b"").decode("latin1"))))
         self.page.on("console", lambda m: audit["console"].append(m.text))
         self.page.on("pageerror", lambda e: audit["errors"].append(str(e)))
         self.backup_path = None

@@ -1,5 +1,6 @@
 """Chat API: membership isolation, versioned sends, groups, disappearing messages, attachments, long polling."""
 import asyncio
+import concurrent.futures
 import time
 import uuid
 from datetime import timedelta
@@ -14,6 +15,12 @@ from tests.conftest import csrf, new_client, register, upload_key
 
 CT = "-----BEGIN PGP MESSAGE-----\n\n{}\n-----END PGP MESSAGE-----"
 BLOB = bytes([0x85]) + b"opaque encrypted attachment bytes"
+
+
+def _run(coro):
+    """asyncio.run in a fresh thread: safe even when a browser-test fixture left an event loop running in this one."""
+    with concurrent.futures.ThreadPoolExecutor(1) as pool:
+        return pool.submit(asyncio.run, coro).result()
 
 
 class P:
@@ -346,7 +353,7 @@ def test_long_poll_wakes_when_a_message_arrives(app, trio):
             res = await asyncio.wait_for(task, 4)
             return res, time.time() - t0
 
-    res, elapsed = asyncio.run(scenario())
+    res, elapsed = _run(scenario())
     assert [i["id"] for i in res.json()["items"]] == [chat["id"]] and elapsed < 3
 
 
@@ -355,3 +362,27 @@ def test_long_poll_needs_auth_and_limits_waiters(app, trio):
     assert new_client(app).get("/api/chats?wait=1").status_code == 401
     assert a.get("?after=not-a-date").status_code == 400
     assert a.get("?wait=999").status_code == 422
+
+
+def test_long_poll_tells_a_removed_member_to_refresh_the_whole_list(app, trio):
+    a, b, _ = trio
+    g = group(a, ["bobby"])
+    b.get("")                                    # bobby sees the group
+    cursor = b.get("").json()["cursor"]
+
+    async def scenario():
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as poll, \
+                httpx.AsyncClient(transport=transport, base_url="http://testserver") as admin:
+            for k, v in b.c.cookies.items():
+                poll.cookies.set(k, v)
+            for k, v in a.c.cookies.items():
+                admin.cookies.set(k, v)
+            task = asyncio.create_task(poll.get("/api/chats", params={"after": cursor, "wait": 15}))
+            await asyncio.sleep(0.5)
+            r = await admin.delete(f"/api/chats/{g['id']}/members/bobby", headers=a.h, params={"members_version": g["members_version"]})
+            assert r.status_code == 204
+            return await asyncio.wait_for(task, 4)
+
+    res = _run(scenario())
+    assert res.json()["full"] is True and res.json()["items"] == []

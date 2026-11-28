@@ -14,6 +14,7 @@
     <a class="brand" href="/" data-link><span class="logo" aria-hidden="true"></span>Tor-Mail</a>
     <nav id="nav" aria-label="Main">
       <ul>
+        <li data-auth="in" hidden><a href="/chats" data-link>Chats <span class="badge" id="chat-badge" hidden></span></a></li>
         <li data-auth="in" hidden><a href="/inbox" data-link>Inbox</a></li>
         <li data-auth="in" hidden><a href="/compose" data-link>Compose</a></li>
         <li data-auth="in" hidden><a href="/sent" data-link>Sent</a></li>
@@ -42,6 +43,9 @@
   <script defer src="{{ asset('/static/vendor/openpgp.min.js') }}"></script>
   <script defer src="{{ asset('/static/js/crypto.js') }}"></script>
   <script defer src="{{ asset('/static/js/mail.js') }}"></script>
+  <script defer src="{{ asset('/static/js/files.js') }}"></script>
+  <script defer src="{{ asset('/static/js/chat.js') }}"></script>
+  <script defer src="{{ asset('/static/js/chat-ui.js') }}"></script>
   <script defer src="{{ asset('/static/js/app.js') }}"></script>
 </body>
 </html>

@@ -79,3 +79,18 @@ We do **not** claim: anonymity against capable adversaries; metadata privacy; pr
 2. The operator runs the published code and keeps the host patched.
 3. Cryptographic libraries (OpenPGP.js, argon2-cffi, Tor) are correct.
 4. Users choose a strong key passphrase.
+
+
+## 8. Chat (added after the first ten phases)
+
+Chat reuses the mail trust model: the browser encrypts and signs, the server stores ciphertext. New threats and what we do about them:
+
+| ID | Threat | Mitigation | Residual risk |
+|---|---|---|---|
+| T22 | The service decides who is in a group, so a hostile server could add a rogue account, or drop and reorder messages | Every send carries the membership version it was encrypted for and the server refuses stale versions (409), so a message is never encrypted to an outdated list. Clients show a notice when the member list changed since they last looked. Messages are signed and bound to the chat id, so a ciphertext cannot be replayed into another chat or forged. Fingerprints can be verified per member | A server that adds a real, key-holding account will receive later messages until members notice the notice. Dropping, delaying or reordering messages is not detectable |
+| T23 | Chat metadata: members, sender, timing, sizes, timer, read position, long-poll timing | Documented on the privacy page. Read receipts can be turned off per person. No typing indicators and no online status are implemented, on purpose | The operator can reconstruct who talks to whom and when |
+| T24 | Disappearing messages promise more than they deliver | Server deletes ciphertext and attachments at expiry and hides them before the purge runs. Wording says what it cannot do | Screenshots, copies, a modified client, backups, or a server that ignores expiry |
+| T25 | Attachment risks: image parser bugs, location and camera metadata, file-type confusion, storage exhaustion, rendering active content | Metadata is removed from JPEG, PNG, WebP and GIF by rewriting the container (not canvas, which Tor Browser randomises); unparseable images are refused. Type is decided by magic bytes, only four raster types are previewed, everything else is opaque `application/octet-stream` and download only. File names are sanitised. Size limit per file, five unsent uploads, daily upload cap. CSP allows `blob:` for images only | Tor Browser's image decoders are still exposed to attacker-chosen images. Other file types keep all their metadata. Orientation is the only EXIF field kept |
+| T26 | Long-poll connections used for exhaustion | Four per user, 25 s each, no database session held while waiting, global body limits, rate limits | Tor-level flooding is out of scope |
+| T27 | Read receipts and sending reveal activity | Receipts are optional and local; sending a message always marks you as having read up to that point | Unavoidable for a working chat |
+| T28 | Group names, replies, edits and reactions forged by members | Edits and reactions only count when signed by the original sender; group titles are signed by a member | A malicious member can still send misleading but validly signed content |

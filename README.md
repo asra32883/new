@@ -59,3 +59,7 @@ See `ARCHITECTURE.md` section 5.1.
 `requirements.in` lists direct runtime dependencies; `requirements.lock` is the hash-pinned full set used by the Docker build
 (`pip install --require-hashes`). Regenerate with `pip-compile --generate-hashes --allow-unsafe -o requirements.lock requirements.in`, then run `pip-audit -r requirements.lock` and the test suite.
 Docs: `docs/INSTALL.md` (install, Fedora, PostgreSQL, updates, backup, troubleshooting), `docs/PRIVACY_POLICY_TEMPLATE.md`, `docs/SECURITY_REVIEW.md`, `deployment/TOR.md`.
+
+
+## Chat
+Direct chats and groups with live updates (long polling over the onion service), replies, reactions, edits, delete-for-everyone, read receipts (optional), disappearing messages, and encrypted image/file attachments (metadata is removed from photos in the browser before upload). Everything readable is encrypted and signed in the browser; see `THREAT_MODEL.md` section 8 for the limits. Not included on purpose: calls, bots, public channels, typing indicators and online status.
